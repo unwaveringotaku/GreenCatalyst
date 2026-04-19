@@ -1,0 +1,121 @@
+name: GreenCatalyst
+
+options:
+  createIntermediateGroups: true
+  bundleIdPrefix: com.greencatalyst
+  deploymentTarget:
+    iOS: "17.0"
+    watchOS: "10.0"
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    DEVELOPMENT_TEAM: ""
+    CODE_SIGN_STYLE: Automatic
+    SWIFT_STRICT_CONCURRENCY: complete
+
+targets:
+
+  # ─── iOS App ───
+  GreenCatalystApp:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: Sources/GreenCatalystApp
+    info:
+      path: Config/GreenCatalystApp-Info.plist
+      properties:
+        CFBundleDisplayName: GreenCatalyst
+        UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+    entitlements:
+      path: Config/GreenCatalystApp.entitlements
+      properties:
+        com.apple.developer.healthkit: true
+        com.apple.developer.healthkit.access: []
+        com.apple.developer.siri: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.greencatalyst.app
+        PRODUCT_NAME: GreenCatalyst
+        TARGETED_DEVICE_FAMILY: "1,2"
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: 1
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: Config/GreenCatalystApp-Info.plist
+        ENABLE_PREVIEWS: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        DEVELOPMENT_ASSET_PATHS: ""
+    dependencies:
+      - target: GreenCatalystWidgets
+      - target: GreenCatalystWatch
+    scheme:
+      testTargets:
+        - GreenCatalystTests
+
+  # ─── watchOS Companion App ───
+  GreenCatalystWatch:
+    type: application
+    platform: watchOS
+    deploymentTarget: "10.0"
+    sources:
+      - path: Sources/GreenCatalystWatch
+    info:
+      path: Config/GreenCatalystWatch-Info.plist
+      properties:
+        WKCompanionAppBundleIdentifier: com.greencatalyst.app
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.greencatalyst.app.watchkitapp
+        PRODUCT_NAME: GreenCatalystWatch
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: 1
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: Config/GreenCatalystWatch-Info.plist
+        INFOPLIST_KEY_WKCompanionAppBundleIdentifier: com.greencatalyst.app
+        SKIP_INSTALL: YES
+
+  # ─── Widget Extension ───
+  GreenCatalystWidgets:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: Sources/GreenCatalystWidgets
+      - path: Sources/GreenCatalystApp/Models
+        name: SharedModels
+      - path: Sources/GreenCatalystApp/Services/DataStore.swift
+        name: DataStore.swift
+      - path: Sources/GreenCatalystApp/Services/CarbonCalculator.swift
+        name: CarbonCalculator.swift
+    info:
+      path: Config/GreenCatalystWidgets-Info.plist
+      properties:
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.greencatalyst.app.widgets
+        PRODUCT_NAME: GreenCatalystWidgets
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: 1
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: Config/GreenCatalystWidgets-Info.plist
+        SKIP_INSTALL: YES
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks"
+
+  # ─── Tests ───
+  GreenCatalystTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: Tests/GreenCatalystTests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.greencatalyst.tests
+        GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - target: GreenCatalystApp

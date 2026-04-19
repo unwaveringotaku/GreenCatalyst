@@ -1,4 +1,4 @@
-// swift-tools-version: 5.9
+// swift-tools-version: 6.0
 import PackageDescription
 
 let package = Package(
@@ -27,19 +27,28 @@ let package = Package(
         .target(
             name: "GreenCatalystWatch",
             dependencies: ["GreenCatalystApp"],
-            path: "Sources/GreenCatalystWatch"
+            path: "Sources/GreenCatalystWatch",
+            swiftSettings: [
+                .enableExperimentalFeature("StrictConcurrency"),
+            ]
         ),
         // WidgetKit Extension
         .target(
             name: "GreenCatalystWidgets",
             dependencies: ["GreenCatalystApp"],
-            path: "Sources/GreenCatalystWidgets"
+            path: "Sources/GreenCatalystWidgets",
+            swiftSettings: [
+                .enableExperimentalFeature("StrictConcurrency"),
+            ]
         ),
         // Tests
         .testTarget(
             name: "GreenCatalystTests",
             dependencies: ["GreenCatalystApp"],
-            path: "Tests/GreenCatalystTests"
+            path: "Tests/GreenCatalystTests",
+            swiftSettings: [
+                .enableExperimentalFeature("StrictConcurrency"),
+            ]
         ),
     ]
 )

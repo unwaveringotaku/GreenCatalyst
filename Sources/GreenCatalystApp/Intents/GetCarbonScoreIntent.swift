@@ -5,25 +5,28 @@ import Foundation
 
 struct GetCarbonScoreIntent: AppIntent {
 
-    static var title: LocalizedStringResource = "Get Carbon Score"
-    static var description = IntentDescription(
-        "Returns today's total CO₂ footprint and tells you if you're on track.",
-        categoryName: "Carbon Tracking"
-    )
+    static var title: LocalizedStringResource { "Get Carbon Score" }
+    static var description: IntentDescription {
+        IntentDescription(
+            "Returns today's total CO₂ footprint and tells you if you're on track.",
+            categoryName: "Carbon Tracking"
+        )
+    }
 
-    static var openAppWhenRun: Bool = false
+    static var openAppWhenRun: Bool { false }
 
     // MARK: - Perform
 
     func perform() async throws -> some IntentResult & ProvidesDialog & ReturnsValue<Double> {
+        let (totalKg, target, name) = try await MainActor.run {
+            let store = DataStore.shared
+            let entries = try store.fetchTodaysEntriesSync()
+            let totalKg = entries.reduce(0.0) { $0 + max(0, $1.kgCO2) }
+            let profile = try store.fetchUserProfileSync()
+            return (totalKg, profile.targetKgPerDay, profile.name)
+        }
 
-        let store = DataStore.shared
-        let entries = try await store.fetchTodaysEntries()
-        let totalKg = entries.reduce(0.0) { $0 + max(0, $1.kgCO2) }
-        let profile = try await store.fetchUserProfile()
-        let target = profile.targetKgPerDay
-
-        let dialog = buildDialog(totalKg: totalKg, target: target, name: profile.name)
+        let dialog = buildDialog(totalKg: totalKg, target: target, name: name)
         return .result(value: totalKg, dialog: dialog)
     }
 
@@ -60,8 +63,8 @@ struct GetCarbonScoreIntent: AppIntent {
 // MARK: - CarbonScoreEntity (for Widget & Spotlight)
 
 struct CarbonScoreEntity: AppEntity {
-    static var typeDisplayRepresentation: TypeDisplayRepresentation = "Carbon Score"
-    static var defaultQuery = CarbonScoreQuery()
+    static var typeDisplayRepresentation: TypeDisplayRepresentation { "Carbon Score" }
+    static var defaultQuery: CarbonScoreQuery { CarbonScoreQuery() }
 
     var id: String
     var kgCO2Today: Double
@@ -74,26 +77,31 @@ struct CarbonScoreEntity: AppEntity {
         )
     }
 
-    static var sample = CarbonScoreEntity(
-        id: "today",
-        kgCO2Today: 4.6,
-        targetKg: 8.0,
-        isUnderTarget: true
-    )
+    static var sample: CarbonScoreEntity {
+        CarbonScoreEntity(
+            id: "today",
+            kgCO2Today: 4.6,
+            targetKg: 8.0,
+            isUnderTarget: true
+        )
+    }
 }
 
 struct CarbonScoreQuery: EntityQuery {
     func entities(for identifiers: [String]) async throws -> [CarbonScoreEntity] {
-        let store = DataStore.shared
-        let entries = try await store.fetchTodaysEntries()
-        let profile = try await store.fetchUserProfile()
-        let total = entries.reduce(0.0) { $0 + max(0, $1.kgCO2) }
-        return [CarbonScoreEntity(
-            id: "today",
-            kgCO2Today: total,
-            targetKg: profile.targetKgPerDay,
-            isUnderTarget: total <= profile.targetKgPerDay
-        )]
+        let entity = try await MainActor.run {
+            let store = DataStore.shared
+            let entries = try store.fetchTodaysEntriesSync()
+            let profile = try store.fetchUserProfileSync()
+            let total = entries.reduce(0.0) { $0 + max(0, $1.kgCO2) }
+            return CarbonScoreEntity(
+                id: "today",
+                kgCO2Today: total,
+                targetKg: profile.targetKgPerDay,
+                isUnderTarget: total <= profile.targetKgPerDay
+            )
+        }
+        return [entity]
     }
 
     func suggestedEntities() async throws -> [CarbonScoreEntity] {

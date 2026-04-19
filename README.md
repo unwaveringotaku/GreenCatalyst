@@ -87,10 +87,23 @@ GreenCatalyst helps people understand, track, and reduce their personal carbon f
 ```bash
 git clone https://github.com/YOUR_USERNAME/GreenCatalyst.git
 cd GreenCatalyst
-open Package.swift
+./scripts/run-ios.sh
 ```
 
-Xcode will resolve the Swift package automatically. Select the `GreenCatalystApp` scheme and run on your target device.
+This repo now includes an XcodeGen project spec at `project.yml` plus the app `Info.plist`.
+The helper script will:
+
+1. verify full Xcode is selected
+2. generate `GreenCatalyst.xcodeproj` with `xcodegen` if needed
+3. open the iOS app project in Xcode
+
+If `xcodegen` is missing, install it with:
+
+```bash
+brew install xcodegen
+```
+
+Then select the `GreenCatalystApp` scheme and run on an iOS 17+ simulator or device.
 
 ### Required Permissions
 

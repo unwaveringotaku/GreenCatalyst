@@ -5,6 +5,7 @@ import UserNotifications
 // MARK: - HabitsViewModel
 
 /// Drives the Habits tab: habit list, streak management, and reminders.
+@MainActor
 @Observable
 final class HabitsViewModel {
 

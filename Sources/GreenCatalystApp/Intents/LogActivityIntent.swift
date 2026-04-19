@@ -13,17 +13,19 @@ enum ActivityType: String, AppEnum {
     case energySaving    = "Energy Saving"
     case recycling       = "Recycling"
 
-    static var typeDisplayRepresentation: TypeDisplayRepresentation = "Activity Type"
-    static var caseDisplayRepresentations: [ActivityType: DisplayRepresentation] = [
-        .bikeCommute:     "Bike Commute",
-        .walkCommute:     "Walk Commute",
-        .carCommute:      "Car Commute",
-        .publicTransport: "Public Transport",
-        .meatFreeMeal:    "Meat-Free Meal",
-        .shortShower:     "Short Shower",
-        .energySaving:    "Energy Saving",
-        .recycling:       "Recycling",
-    ]
+    static var typeDisplayRepresentation: TypeDisplayRepresentation { "Activity Type" }
+    static var caseDisplayRepresentations: [ActivityType: DisplayRepresentation] {
+        [
+            .bikeCommute: "Bike Commute",
+            .walkCommute: "Walk Commute",
+            .carCommute: "Car Commute",
+            .publicTransport: "Public Transport",
+            .meatFreeMeal: "Meat-Free Meal",
+            .shortShower: "Short Shower",
+            .energySaving: "Energy Saving",
+            .recycling: "Recycling",
+        ]
+    }
 
     var carbonCategory: CarbonCategory {
         switch self {
@@ -53,14 +55,16 @@ enum ActivityType: String, AppEnum {
 
 struct LogActivityIntent: AppIntent {
 
-    static var title: LocalizedStringResource = "Log Activity"
-    static var description = IntentDescription(
-        "Logs a carbon-related activity to GreenCatalyst.",
-        categoryName: "Carbon Tracking"
-    )
+    static var title: LocalizedStringResource { "Log Activity" }
+    static var description: IntentDescription {
+        IntentDescription(
+            "Logs a carbon-related activity to GreenCatalyst.",
+            categoryName: "Carbon Tracking"
+        )
+    }
 
     // Siri phrases
-    static var openAppWhenRun: Bool = false
+    static var openAppWhenRun: Bool { false }
 
     @Parameter(title: "Activity Type", description: "What kind of activity did you do?")
     var activityType: ActivityType
@@ -90,8 +94,11 @@ struct LogActivityIntent: AppIntent {
             distanceKm: distanceKm > 0 ? distanceKm : nil
         )
 
-        let store = DataStore.shared
-        try await store.saveEntry(entry)
+        try await MainActor.run {
+            let store = DataStore.shared
+            store.saveEntrySync(entry)
+            try store.saveContext()
+        }
 
         let dialog: IntentDialog
         if kg == 0 {
@@ -131,6 +138,7 @@ struct LogActivityIntent: AppIntent {
 // MARK: - Shortcuts Provider
 
 struct GreenCatalystShortcuts: AppShortcutsProvider {
+    @AppShortcutsBuilder
     static var appShortcuts: [AppShortcut] {
         AppShortcut(
             intent: LogActivityIntent(),

@@ -5,6 +5,7 @@ import Combine
 // MARK: - HomeViewModel
 
 /// Drives the Home tab: today's carbon ring, active nudges, and quick-log.
+@MainActor
 @Observable
 final class HomeViewModel {
 
@@ -54,11 +55,10 @@ final class HomeViewModel {
         defer { isLoading = false }
 
         do {
-            async let entries = dataStore.fetchTodaysEntries()
-            async let nudges = dataStore.fetchActiveNudges()
-            async let profile = dataStore.fetchUserProfile()
+            let fetchedEntries = try await dataStore.fetchTodaysEntries()
+            let fetchedNudges = try await dataStore.fetchActiveNudges()
+            let fetchedProfile = try await dataStore.fetchUserProfile()
 
-            let (fetchedEntries, fetchedNudges, fetchedProfile) = try await (entries, nudges, profile)
             recentEntries = fetchedEntries
             activeNudges = fetchedNudges
                 .filter { $0.isActive }

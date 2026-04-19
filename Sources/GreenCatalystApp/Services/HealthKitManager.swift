@@ -191,7 +191,6 @@ final class HealthKitManager: ObservableObject {
         case .walking:         return .walking
         case .running:         return .running
         case .cycling:         return .cycling
-        case .carBodies:       return .car
         case .other:           return inferFromMetrics(workout)
         default:               return nil
         }

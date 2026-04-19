@@ -18,7 +18,7 @@ struct WatchApp: App {
 
 // MARK: - WatchAppDelegate
 
-final class WatchAppDelegate: NSObject, WKApplicationDelegate, WCSessionDelegate {
+final class WatchAppDelegate: NSObject, WKApplicationDelegate {
 
     override init() {
         super.init()
@@ -35,21 +35,23 @@ final class WatchAppDelegate: NSObject, WKApplicationDelegate, WCSessionDelegate
             userInfo: nil
         ) { _ in }
     }
+}
 
-    // MARK: - WCSessionDelegate
+// MARK: - WCSessionDelegate
 
-    func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {}
+extension WatchAppDelegate: WCSessionDelegate {
 
-    func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
-        // Update local store from iOS app data
-        if let kgCO2 = message["kgCO2Today"] as? Double {
-            WatchDataStore.shared.kgCO2Today = kgCO2
-        }
-        if let streak = message["topStreak"] as? Int {
-            WatchDataStore.shared.topStreak = streak
-        }
-        if let nudge = message["topNudge"] as? String {
-            WatchDataStore.shared.topNudgeTitle = nudge
+    nonisolated func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {}
+
+    nonisolated func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
+        // Extract values on the calling thread before crossing isolation boundary
+        let kgCO2 = message["kgCO2Today"] as? Double
+        let streak = message["topStreak"] as? Int
+        let nudge = message["topNudge"] as? String
+        Task { @MainActor in
+            if let kgCO2 { WatchDataStore.shared.kgCO2Today = kgCO2 }
+            if let streak { WatchDataStore.shared.topStreak = streak }
+            if let nudge { WatchDataStore.shared.topNudgeTitle = nudge }
         }
     }
 }
@@ -57,7 +59,7 @@ final class WatchAppDelegate: NSObject, WKApplicationDelegate, WCSessionDelegate
 // MARK: - WatchDataStore
 
 /// Lightweight in-memory/UserDefaults store for Watch.
-@Observable
+@MainActor @Observable
 final class WatchDataStore {
     static let shared = WatchDataStore()
 

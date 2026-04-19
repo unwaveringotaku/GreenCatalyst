@@ -89,7 +89,7 @@ final class Habit: Identifiable {
     // MARK: - Methods
 
     /// Mark the habit as completed now, updating streak logic.
-    mutating func markCompleted(at date: Date = .now) {
+    func markCompleted(at date: Date = .now) {
         completionDates.append(date)
         let calendar = Calendar.current
 

@@ -4,6 +4,7 @@ import Observation
 // MARK: - ImpactViewModel
 
 /// Drives the Impact tab: historical charts, equivalencies, and period comparisons.
+@MainActor
 @Observable
 final class ImpactViewModel {
 

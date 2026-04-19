@@ -62,8 +62,8 @@ enum GeofenceTrigger: String, Codable {
 
 /// CLLocationManager wrapper that detects trips, monitors geofences,
 /// and publishes location updates to the rest of the app.
-@Observable
-final class LocationManager: NSObject, CLLocationManagerDelegate {
+@MainActor @Observable
+final class LocationManager: NSObject {
 
     static let shared = LocationManager()
 
@@ -152,40 +152,6 @@ final class LocationManager: NSObject, CLLocationManagerDelegate {
         return total / 1000.0
     }
 
-    // MARK: - CLLocationManagerDelegate
-
-    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        guard let location = locations.last else { return }
-        currentLocation = location
-
-        switch tripState {
-        case .idle:
-            if location.speed > tripStartSpeedThreshold {
-                tripState = .detectingStart
-                tripPath = [location]
-            }
-        case .detectingStart:
-            tripPath.append(location)
-            if location.speed > tripStartSpeedThreshold && tripPath.count >= 3 {
-                tripState = .inProgress(startLocation: location, startTime: location.timestamp)
-            }
-        case .inProgress:
-            tripPath.append(location)
-            if location.speed < 0.5 {
-                if stationarySince == nil { stationarySince = location.timestamp }
-                if let since = stationarySince,
-                   location.timestamp.timeIntervalSince(since) > tripEndStateDuration {
-                    endTrip()
-                }
-            } else {
-                stationarySince = nil
-            }
-        case .ended:
-            tripState = .idle
-            tripPath.removeAll()
-        }
-    }
-
     private func endTrip() {
         let km = currentTripDistanceKm
         // Heuristic: if average speed > 15 km/h → car, else cycling/walking
@@ -196,29 +162,81 @@ final class LocationManager: NSObject, CLLocationManagerDelegate {
         tripState = .ended(distanceKm: km, mode: mode)
         stationarySince = nil
     }
+}
 
-    func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
-        authorizationStatus = status
-        switch status {
-        case .authorizedWhenInUse, .authorizedAlways:
-            startTracking()
-        case .denied:
-            errorMessage = LocationError.permissionDenied.errorDescription
-        case .restricted:
-            errorMessage = LocationError.permissionRestricted.errorDescription
-        default: break
+// MARK: - CLLocationManagerDelegate
+
+extension LocationManager: CLLocationManagerDelegate {
+
+    nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        guard let location = locations.last else { return }
+        let speed = location.speed
+        let timestamp = location.timestamp
+        Task { @MainActor in
+            currentLocation = location
+
+            switch tripState {
+            case .idle:
+                if speed > tripStartSpeedThreshold {
+                    tripState = .detectingStart
+                    tripPath = [location]
+                }
+            case .detectingStart:
+                tripPath.append(location)
+                if speed > tripStartSpeedThreshold && tripPath.count >= 3 {
+                    tripState = .inProgress(startLocation: location, startTime: timestamp)
+                }
+            case .inProgress:
+                tripPath.append(location)
+                if speed < 0.5 {
+                    if stationarySince == nil { stationarySince = timestamp }
+                    if let since = stationarySince,
+                       timestamp.timeIntervalSince(since) > tripEndStateDuration {
+                        endTrip()
+                    }
+                } else {
+                    stationarySince = nil
+                }
+            case .ended:
+                tripState = .idle
+                tripPath.removeAll()
+            }
         }
     }
 
-    func locationManager(_ manager: CLLocationManager, didEnterRegion region: CLRegion) {
-        lastTriggeredZone = geofenceZones.first { $0.id.uuidString == region.identifier }
+    nonisolated func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
+        Task { @MainActor in
+            authorizationStatus = status
+            switch status {
+            case .authorizedWhenInUse, .authorizedAlways:
+                startTracking()
+            case .denied:
+                errorMessage = LocationError.permissionDenied.errorDescription
+            case .restricted:
+                errorMessage = LocationError.permissionRestricted.errorDescription
+            default: break
+            }
+        }
     }
 
-    func locationManager(_ manager: CLLocationManager, didExitRegion region: CLRegion) {
-        lastTriggeredZone = geofenceZones.first { $0.id.uuidString == region.identifier }
+    nonisolated func locationManager(_ manager: CLLocationManager, didEnterRegion region: CLRegion) {
+        let identifier = region.identifier
+        Task { @MainActor in
+            lastTriggeredZone = geofenceZones.first { $0.id.uuidString == identifier }
+        }
     }
 
-    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        errorMessage = error.localizedDescription
+    nonisolated func locationManager(_ manager: CLLocationManager, didExitRegion region: CLRegion) {
+        let identifier = region.identifier
+        Task { @MainActor in
+            lastTriggeredZone = geofenceZones.first { $0.id.uuidString == identifier }
+        }
+    }
+
+    nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        let message = error.localizedDescription
+        Task { @MainActor in
+            errorMessage = message
+        }
     }
 }

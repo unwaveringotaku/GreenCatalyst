@@ -88,7 +88,7 @@ struct WatchHomeView: View {
                 .foregroundStyle(store.isUnderTarget ? .green : .orange)
         }
         .padding(8)
-        .background(Color(.systemGray6))
+        .background(Color.gray.opacity(0.15))
         .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 

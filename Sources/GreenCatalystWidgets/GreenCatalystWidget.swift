@@ -95,8 +95,8 @@ struct GreenCatalystProvider: AppIntentTimelineProvider {
 // MARK: - Intent
 
 struct GreenCatalystWidgetIntent: WidgetConfigurationIntent {
-    static var title: LocalizedStringResource = "GreenCatalyst Widget"
-    static var description = IntentDescription("Shows your daily CO₂ footprint.")
+    static let title: LocalizedStringResource = "GreenCatalyst Widget"
+    static let description = IntentDescription("Shows your daily CO₂ footprint.")
 }
 
 // MARK: - Small Widget View

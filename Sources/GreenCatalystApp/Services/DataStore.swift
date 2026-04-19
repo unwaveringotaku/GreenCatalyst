@@ -219,6 +219,39 @@ final class DataStore {
         }
     }
 
+    // MARK: - Synchronous Variants (for AppIntents)
+
+    func saveEntrySync(_ entry: CarbonEntry) {
+        context.insert(entry)
+    }
+
+    func saveContext() throws {
+        try context.save()
+    }
+
+    func fetchTodaysEntriesSync() throws -> [CarbonEntry] {
+        let today = Calendar.current.startOfDay(for: .now)
+        let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: today)!
+        var descriptor = FetchDescriptor<CarbonEntry>(
+            predicate: #Predicate<CarbonEntry> { entry in
+                entry.date >= today && entry.date < tomorrow
+            },
+            sortBy: [SortDescriptor(\.date, order: .reverse)]
+        )
+        descriptor.fetchLimit = 100
+        return try context.fetch(descriptor)
+    }
+
+    func fetchUserProfileSync() throws -> UserProfile {
+        let descriptor = FetchDescriptor<UserProfile>()
+        let results = try context.fetch(descriptor)
+        if let profile = results.first { return profile }
+        let profile = UserProfile()
+        context.insert(profile)
+        try context.save()
+        return profile
+    }
+
     // MARK: - Helpers
 
     private func startDate(for period: SummaryPeriod) -> Date {
