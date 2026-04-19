@@ -131,7 +131,7 @@ struct ImpactSummary: Identifiable {
 
     var progressPercent: Double {
         guard targetKgCO2 > 0 else { return 0 }
-        return min(1.0, totalKgCO2 / targetKgCO2)
+        return min(1.0, abs(totalKgCO2) / targetKgCO2)
     }
 
     // MARK: - Equivalency factory

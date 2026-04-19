@@ -12,12 +12,16 @@ struct DonutChartView: View {
 
     @State private var selectedIndex: Int? = nil
 
-    private var total: Double {
+    private var totalMagnitude: Double {
+        breakdowns.reduce(0) { $0 + abs($1.kgCO2) }
+    }
+
+    private var netTotal: Double {
         breakdowns.reduce(0) { $0 + $1.kgCO2 }
     }
 
     var body: some View {
-        if breakdowns.isEmpty || total == 0 {
+        if breakdowns.isEmpty || totalMagnitude == 0 {
             emptyState
         } else {
             HStack(spacing: 20) {
@@ -40,7 +44,7 @@ struct DonutChartView: View {
 
                 var startAngle = Angle.degrees(-90)
                 for (index, breakdown) in breakdowns.enumerated() {
-                    let sweep = Angle.degrees(360 * (breakdown.kgCO2 / total))
+                    let sweep = Angle.degrees(360 * (abs(breakdown.kgCO2) / totalMagnitude))
                     let endAngle = startAngle + sweep
                     let isSelected = selectedIndex == index
 
@@ -87,7 +91,7 @@ struct DonutChartView: View {
                 .frame(width: 70)
             } else {
                 VStack(spacing: 2) {
-                    Text(String(format: "%.1f", total))
+                    Text(String(format: "%.1f", netTotal))
                         .font(.system(size: 16, weight: .bold, design: .rounded).monospacedDigit())
                     Text("kg total")
                         .font(.system(size: 10))
@@ -167,7 +171,7 @@ struct DonutChartView: View {
 
         var cumulative = 0.0
         for (index, breakdown) in breakdowns.enumerated() {
-            let sweep = 360 * (breakdown.kgCO2 / total)
+            let sweep = 360 * (abs(breakdown.kgCO2) / totalMagnitude)
             if angle >= cumulative && angle < cumulative + sweep { return index }
             cumulative += sweep
         }

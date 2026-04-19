@@ -132,9 +132,9 @@ final class CarbonCalculator {
         period: SummaryPeriod,
         target: Double
     ) -> ImpactSummary {
-        let grossTotalKg = entries.reduce(0.0) { $0 + max(0, $1.kgCO2) }
+        let totalKg = entries.reduce(0.0) { $0 + $1.kgCO2 }
+        let totalMagnitudeKg = entries.reduce(0.0) { $0 + abs($1.kgCO2) }
         let totalSaved = completedNudges.reduce(0.0) { $0 + max(0, $1.co2Saving) }
-        let netTotalKg = max(0, grossTotalKg - totalSaved)
         let totalCostSaved = completedNudges.reduce(0.0) { $0 + max(0, $1.costSaving) }
         let totalPointsEarned = completedNudges.reduce(0) { partialResult, nudge in
             partialResult + Int((max(0, nudge.co2Saving) * 10).rounded())
@@ -143,17 +143,13 @@ final class CarbonCalculator {
         // Per-category breakdown
         let categories = CarbonCategory.allCases
         let breakdowns: [CategoryBreakdown] = categories.compactMap { cat in
-            let catEntryKg = entries
+            let catNetKg = entries
                 .filter { $0.category == cat }
-                .reduce(0.0) { $0 + max(0, $1.kgCO2) }
-            let catSavedKg = completedNudges
-                .filter { $0.category == cat }
-                .reduce(0.0) { $0 + max(0, $1.co2Saving) }
-            let catNetKg = max(0, catEntryKg - catSavedKg)
+                .reduce(0.0) { $0 + $1.kgCO2 }
 
-            guard catEntryKg > 0 || catSavedKg > 0 else { return nil }
+            guard abs(catNetKg) > 0.0001 else { return nil }
 
-            let pct = netTotalKg > 0 ? catNetKg / netTotalKg : 0
+            let pct = totalMagnitudeKg > 0 ? abs(catNetKg) / totalMagnitudeKg : 0
             let periodTarget = periodMultiplier(period) * cat.dailyBudgetKg
             return CategoryBreakdown(
                 category: cat,
@@ -169,7 +165,7 @@ final class CarbonCalculator {
             period: period,
             startDate: startDate(for: period),
             endDate: .now,
-            totalKgCO2: netTotalKg,
+            totalKgCO2: totalKg,
             totalKgSaved: totalSaved,
             targetKgCO2: periodTarget,
             byCategory: breakdowns,
@@ -178,7 +174,7 @@ final class CarbonCalculator {
             habitsCompleted: 0,
             nudgesActedOn: completedNudges.count,
             vsLastPeriodDelta: 0,
-            vsNationalAverageDelta: netTotalKg - (12.5 * periodMultiplier(period))
+            vsNationalAverageDelta: totalKg - (12.5 * periodMultiplier(period))
         )
     }
 

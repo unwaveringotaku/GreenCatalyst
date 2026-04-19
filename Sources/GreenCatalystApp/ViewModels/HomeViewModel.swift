@@ -123,8 +123,15 @@ final class HomeViewModel {
     func completeNudge(_ nudge: Nudge) {
         nudge.markCompleted()
         userProfile.addPoints(Int(nudge.co2Saving * 10))
+        let savingsEntry = CarbonEntry(
+            category: nudge.category,
+            kgCO2: -nudge.co2Saving,
+            source: .manual,
+            notes: "Completed nudge: \(nudge.title)"
+        )
         Task {
             do {
+                try await dataStore.saveEntry(savingsEntry)
                 try await dataStore.saveNudge(nudge)
                 try await dataStore.saveProfile(userProfile)
                 await loadData()
