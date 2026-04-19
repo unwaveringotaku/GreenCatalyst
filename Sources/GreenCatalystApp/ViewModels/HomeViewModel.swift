@@ -11,10 +11,10 @@ final class HomeViewModel {
 
     // MARK: - Published State
 
-    var todaySummary: ImpactSummary = .todaySample
+    var todaySummary: ImpactSummary = .empty()
     var activeNudges: [Nudge] = []
     var recentEntries: [CarbonEntry] = []
-    var userProfile: UserProfile = .sample
+    var userProfile: UserProfile = UserProfile()
     var isLoading: Bool = false
     var errorMessage: String? = nil
     var showAddEntrySheet: Bool = false
@@ -57,6 +57,7 @@ final class HomeViewModel {
         do {
             let fetchedEntries = try await dataStore.fetchTodaysEntries()
             let fetchedNudges = try await dataStore.fetchActiveNudges()
+            let completedNudges = try await dataStore.fetchCompletedNudges(for: .today)
             let fetchedProfile = try await dataStore.fetchUserProfile()
 
             recentEntries = fetchedEntries
@@ -66,6 +67,7 @@ final class HomeViewModel {
             userProfile = fetchedProfile
             todaySummary = carbonCalculator.buildDailySummary(
                 entries: fetchedEntries,
+                completedNudges: completedNudges,
                 target: fetchedProfile.targetKgPerDay
             )
         } catch {
@@ -145,6 +147,7 @@ final class HomeViewModel {
     func syncHealthKitData() {
         Task {
             do {
+                await healthKitManager.requestAuthorization()
                 let inferredEntries = try await healthKitManager.inferCarbonEntries(for: .now)
                 for entry in inferredEntries {
                     try await dataStore.saveEntry(entry)

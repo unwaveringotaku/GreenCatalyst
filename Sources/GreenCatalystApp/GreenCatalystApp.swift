@@ -45,9 +45,5 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     func applicationDidBecomeActive(_ application: UIApplication) {
         // Clear badge on becoming active
         UNUserNotificationCenter.current().setBadgeCount(0)
-        // Sync HealthKit data in background
-        Task {
-            await HealthKitManager.shared.requestAuthorization()
-        }
     }
 }

@@ -40,13 +40,9 @@ struct NudgeCardView: View {
                         .onEnded { value in
                             let width = value.translation.width
                             if width > swipeThreshold {
-                                withAnimation(.spring()) { dragOffset = 400 }
-                                isDone = true
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { onComplete() }
+                                handleComplete()
                             } else if width < -swipeThreshold {
-                                withAnimation(.spring()) { dragOffset = -400 }
-                                isGone = true
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { onDismiss() }
+                                handleDismiss()
                             } else {
                                 withAnimation(.spring()) { dragOffset = 0 }
                             }
@@ -100,18 +96,20 @@ struct NudgeCardView: View {
                 Spacer()
 
                 // Quick-action buttons
-                Button(action: onDismiss) {
+                Button(action: handleDismiss) {
                     Image(systemName: "xmark").font(.caption.bold())
                 }
                 .buttonStyle(.bordered)
                 .tint(.gray)
+                .disabled(isDone || isGone)
 
-                Button(action: onComplete) {
+                Button(action: handleComplete) {
                     Label("Done", systemImage: "checkmark")
                         .font(.caption.bold())
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.green)
+                .disabled(isDone || isGone)
             }
         }
         .padding()
@@ -152,6 +150,20 @@ struct NudgeCardView: View {
                 EmptyView()
             }
         }
+    }
+
+    private func handleComplete() {
+        guard !isDone && !isGone else { return }
+        withAnimation(.spring()) { dragOffset = 400 }
+        isDone = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { onComplete() }
+    }
+
+    private func handleDismiss() {
+        guard !isDone && !isGone else { return }
+        withAnimation(.spring()) { dragOffset = -400 }
+        isGone = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { onDismiss() }
     }
 }
 

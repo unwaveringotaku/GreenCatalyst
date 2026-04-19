@@ -219,7 +219,7 @@ struct AddHabitSheet: View {
     @State private var reminderTime: Date = Calendar.current.date(bySettingHour: 8, minute: 0, second: 0, of: .now) ?? .now
 
     private let availableIcons = ["bicycle", "leaf.fill", "drop.fill", "bag.fill", "car.fill",
-                                   "tram.fill", "fork.knife", "sun.max.fill", "wind", "recycling",
+                                   "tram.fill", "fork.knife", "sun.max.fill", "wind", "arrow.3.trianglepath",
                                    "figure.walk", "bolt.fill", "trash.fill", "cart.fill"]
 
     var body: some View {

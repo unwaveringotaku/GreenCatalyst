@@ -65,7 +65,7 @@ final class HealthKitManager: ObservableObject {
     // MARK: - Authorization
 
     func requestAuthorization() async {
-        guard HKHealthStore.isHealthDataAvailable() else { return }
+        guard !isAuthorized, HKHealthStore.isHealthDataAvailable() else { return }
         do {
             try await store.requestAuthorization(toShare: writeTypes, read: readTypes)
             isAuthorized = true

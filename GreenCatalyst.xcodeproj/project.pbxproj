@@ -15,6 +15,8 @@
 		325C3ECB712798B30BAF43FE /* HabitsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A70469694E0D1BCFCB6D592 /* HabitsViewModel.swift */; };
 		3339C6654000B6C1ED3D0155 /* GreenCatalystWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = BD8A96D8D6674558EBA6C57F /* GreenCatalystWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		4663A4AB426D0B1BFAF089F3 /* HabitsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE829ED429DC095EDD961440 /* HabitsView.swift */; };
+		46D1130C2F94FFCF00DA2593 /* CloudProfileStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46D1130B2F94FFCF00DA2593 /* CloudProfileStore.swift */; };
+		46D1130E2F94FFEC00DA2593 /* UserInfoOnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46D1130D2F94FFEC00DA2593 /* UserInfoOnboardingView.swift */; };
 		50A68F5380A2586467C08053 /* LocationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = D84980F03229EAFDCE01383A /* LocationManager.swift */; };
 		51B827DB07FA7343C79D87DF /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83BD260BD0C43DA60C055AEB /* HomeView.swift */; };
 		54990D8E28E54A2BF1ED7AF8 /* CarbonCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A5080DC3BFC901070AD99AE /* CarbonCalculator.swift */; };
@@ -112,8 +114,10 @@
 		3786357B39AEEE9064397B70 /* HealthKitManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitManager.swift; sourceTree = "<group>"; };
 		3DB3298598AEFE3E588DCAA9 /* LogActivityIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogActivityIntent.swift; sourceTree = "<group>"; };
 		45B4C8BCBF0DB1F012AE6808 /* GreenCatalystTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GreenCatalystTests.swift; sourceTree = "<group>"; };
+		46D1130B2F94FFCF00DA2593 /* CloudProfileStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudProfileStore.swift; sourceTree = "<group>"; };
+		46D1130D2F94FFEC00DA2593 /* UserInfoOnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserInfoOnboardingView.swift; sourceTree = "<group>"; };
 		559847D77DF731475A4ECEB8 /* Habit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Habit.swift; sourceTree = "<group>"; };
-		5D439E8FD533FFFAC628EFC5 /* GreenCatalystApp.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = GreenCatalystApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		5D439E8FD533FFFAC628EFC5 /* GreenCatalyst.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GreenCatalyst.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		60E225C012D851864501E209 /* GreenCatalystWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GreenCatalystWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		74E4E52058C7159FB6100F80 /* HomeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewModel.swift; sourceTree = "<group>"; };
 		83BD260BD0C43DA60C055AEB /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
@@ -124,7 +128,7 @@
 		B523B9667BDABEC69A7DC74A /* DataStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataStore.swift; sourceTree = "<group>"; };
 		B658ABD19C91492411CB27E7 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		BC1795A0851C005FD3B450CF /* DonutChartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DonutChartView.swift; sourceTree = "<group>"; };
-		BD8A96D8D6674558EBA6C57F /* GreenCatalystWidgets.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = GreenCatalystWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		BD8A96D8D6674558EBA6C57F /* GreenCatalystWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = GreenCatalystWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		BE829ED429DC095EDD961440 /* HabitsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HabitsView.swift; sourceTree = "<group>"; };
 		CC2226228E83F016ADD6A5A6 /* WatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchApp.swift; sourceTree = "<group>"; };
 		D6842ED6B975FC726B69D0F8 /* NudgeCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NudgeCardView.swift; sourceTree = "<group>"; };
@@ -191,6 +195,7 @@
 				F3EFA50F878FBC8D495C697D /* ImpactView.swift */,
 				9B149CA304A7D52E53F87212 /* SiriView.swift */,
 				E517094B0E4154261F80134B /* Components */,
+				46D1130D2F94FFEC00DA2593 /* UserInfoOnboardingView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -224,6 +229,7 @@
 				3786357B39AEEE9064397B70 /* HealthKitManager.swift */,
 				D84980F03229EAFDCE01383A /* LocationManager.swift */,
 				F1710F09A6E59C2753D101B3 /* NotificationManager.swift */,
+				46D1130B2F94FFCF00DA2593 /* CloudProfileStore.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -231,7 +237,7 @@
 		9BC92E05F4A873A99E4AD589 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				5D439E8FD533FFFAC628EFC5 /* GreenCatalystApp.app */,
+				5D439E8FD533FFFAC628EFC5 /* GreenCatalyst.app */,
 				DE5FAC82ACFD9DA55AAEA719 /* GreenCatalystTests.xctest */,
 				60E225C012D851864501E209 /* GreenCatalystWatch.app */,
 				BD8A96D8D6674558EBA6C57F /* GreenCatalystWidgets.appex */,
@@ -340,7 +346,7 @@
 			packageProductDependencies = (
 			);
 			productName = GreenCatalystApp;
-			productReference = 5D439E8FD533FFFAC628EFC5 /* GreenCatalystApp.app */;
+			productReference = 5D439E8FD533FFFAC628EFC5 /* GreenCatalyst.app */;
 			productType = "com.apple.product-type.application";
 		};
 		D61EBB06D0AFBCD876B5D95B /* GreenCatalystWidgets */ = {
@@ -373,16 +379,10 @@
 						DevelopmentTeam = "";
 						ProvisioningStyle = Automatic;
 					};
-					1949392DA1E32E7E89D78B53 = {
-						DevelopmentTeam = "";
-						ProvisioningStyle = Automatic;
-					};
 					B8DE7DE56AC333FF606F1870 = {
-						DevelopmentTeam = "";
 						ProvisioningStyle = Automatic;
 					};
 					D61EBB06D0AFBCD876B5D95B = {
-						DevelopmentTeam = "";
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -436,10 +436,12 @@
 				EBD868CDF68EAB2067F6C515 /* Habit.swift in Sources */,
 				82D5510275A3427B8DD2479F /* HabitRowView.swift in Sources */,
 				4663A4AB426D0B1BFAF089F3 /* HabitsView.swift in Sources */,
+				46D1130C2F94FFCF00DA2593 /* CloudProfileStore.swift in Sources */,
 				325C3ECB712798B30BAF43FE /* HabitsViewModel.swift in Sources */,
 				B40BD6A03C55BFDAA69455E2 /* HealthKitManager.swift in Sources */,
 				51B827DB07FA7343C79D87DF /* HomeView.swift in Sources */,
 				1ACD5C11DE64ADBDCFAB1E4B /* HomeViewModel.swift in Sources */,
+				46D1130E2F94FFEC00DA2593 /* UserInfoOnboardingView.swift in Sources */,
 				56AE0AA3759B20135489D164 /* ImpactSummary.swift in Sources */,
 				F9AFFC991B01C1C46F386B8B /* ImpactView.swift in Sources */,
 				C75DB6CB89D30EAF36BC6E41 /* ImpactViewModel.swift in Sources */,
@@ -511,10 +513,15 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 2S3J25L8S9;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "Config/GreenCatalystWidgets-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.greencatalyst.app.widgets;
 				PRODUCT_NAME = GreenCatalystWidgets;
@@ -587,13 +594,17 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 2S3J25L8S9;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "Config/GreenCatalystWatch-Info.plist";
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.greencatalyst.app;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.greencatalyst.app.watchkitapp;
 				PRODUCT_NAME = GreenCatalystWatch;
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = watchos;
 				SKIP_INSTALL = YES;
 				TARGETED_DEVICE_FAMILY = 4;
@@ -693,6 +704,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "";
+				DEVELOPMENT_TEAM = 2S3J25L8S9;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "Config/GreenCatalystApp-Info.plist";
@@ -731,13 +743,17 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 2S3J25L8S9;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "Config/GreenCatalystWatch-Info.plist";
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.greencatalyst.app;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.greencatalyst.app.watchkitapp;
 				PRODUCT_NAME = GreenCatalystWatch;
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = watchos;
 				SKIP_INSTALL = YES;
 				TARGETED_DEVICE_FAMILY = 4;
@@ -749,10 +765,15 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 2S3J25L8S9;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "Config/GreenCatalystWidgets-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.greencatalyst.app.widgets;
 				PRODUCT_NAME = GreenCatalystWidgets;
@@ -770,6 +791,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "";
+				DEVELOPMENT_TEAM = 2S3J25L8S9;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "Config/GreenCatalystApp-Info.plist";

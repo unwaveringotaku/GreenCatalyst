@@ -161,6 +161,27 @@ struct ImpactSummary: Identifiable {
 // MARK: - Sample Data
 
 extension ImpactSummary {
+    static func empty(
+        period: SummaryPeriod = .today,
+        targetKgCO2: Double = 8.0
+    ) -> ImpactSummary {
+        ImpactSummary(
+            period: period,
+            startDate: Calendar.current.startOfDay(for: .now),
+            endDate: .now,
+            totalKgCO2: 0,
+            totalKgSaved: 0,
+            targetKgCO2: targetKgCO2,
+            byCategory: [],
+            costSaved: 0,
+            pointsEarned: 0,
+            habitsCompleted: 0,
+            nudgesActedOn: 0,
+            vsLastPeriodDelta: 0,
+            vsNationalAverageDelta: period == .today ? -12.5 : 0
+        )
+    }
+
     static var todaySample: ImpactSummary {
         let breakdowns: [CategoryBreakdown] = [
             CategoryBreakdown(category: .transport, kgCO2: 2.4, percentOfTotal: 0.52, vsTargetDelta: -1.6),

@@ -112,51 +112,73 @@ final class CarbonCalculator {
     // MARK: - Summary Builders
 
     /// Build a daily summary from today's entries.
-    func buildDailySummary(entries: [CarbonEntry], target: Double) -> ImpactSummary {
-        buildSummary(entries: entries, period: .today, target: target)
+    func buildDailySummary(
+        entries: [CarbonEntry],
+        completedNudges: [Nudge] = [],
+        target: Double
+    ) -> ImpactSummary {
+        buildSummary(
+            entries: entries,
+            completedNudges: completedNudges,
+            period: .today,
+            target: target
+        )
     }
 
     /// Build an ImpactSummary for a given period.
     func buildSummary(
         entries: [CarbonEntry],
+        completedNudges: [Nudge] = [],
         period: SummaryPeriod,
         target: Double
     ) -> ImpactSummary {
-        let totalKg = entries.reduce(0.0) { $0 + max(0, $1.kgCO2) }
+        let grossTotalKg = entries.reduce(0.0) { $0 + max(0, $1.kgCO2) }
+        let totalSaved = completedNudges.reduce(0.0) { $0 + max(0, $1.co2Saving) }
+        let netTotalKg = max(0, grossTotalKg - totalSaved)
+        let totalCostSaved = completedNudges.reduce(0.0) { $0 + max(0, $1.costSaving) }
+        let totalPointsEarned = completedNudges.reduce(0) { partialResult, nudge in
+            partialResult + Int((max(0, nudge.co2Saving) * 10).rounded())
+        }
 
         // Per-category breakdown
         let categories = CarbonCategory.allCases
         let breakdowns: [CategoryBreakdown] = categories.compactMap { cat in
-            let catEntries = entries.filter { $0.category == cat }
-            guard !catEntries.isEmpty else { return nil }
-            let catKg = catEntries.reduce(0.0) { $0 + $1.kgCO2 }
-            let pct = totalKg > 0 ? catKg / totalKg : 0
+            let catEntryKg = entries
+                .filter { $0.category == cat }
+                .reduce(0.0) { $0 + max(0, $1.kgCO2) }
+            let catSavedKg = completedNudges
+                .filter { $0.category == cat }
+                .reduce(0.0) { $0 + max(0, $1.co2Saving) }
+            let catNetKg = max(0, catEntryKg - catSavedKg)
+
+            guard catEntryKg > 0 || catSavedKg > 0 else { return nil }
+
+            let pct = netTotalKg > 0 ? catNetKg / netTotalKg : 0
             let periodTarget = periodMultiplier(period) * cat.dailyBudgetKg
             return CategoryBreakdown(
                 category: cat,
-                kgCO2: catKg,
+                kgCO2: catNetKg,
                 percentOfTotal: pct,
-                vsTargetDelta: catKg - periodTarget
+                vsTargetDelta: catNetKg - periodTarget
             )
         }
 
         let periodTarget = periodMultiplier(period) * target
-        let saved = max(0, periodTarget - totalKg)
 
         return ImpactSummary(
             period: period,
             startDate: startDate(for: period),
             endDate: .now,
-            totalKgCO2: totalKg,
-            totalKgSaved: saved,
+            totalKgCO2: netTotalKg,
+            totalKgSaved: totalSaved,
             targetKgCO2: periodTarget,
             byCategory: breakdowns,
-            costSaved: saved * 0.2,   // rough £0.20 per kg CO₂ saved
-            pointsEarned: Int(saved * 10),
+            costSaved: totalCostSaved,
+            pointsEarned: totalPointsEarned,
             habitsCompleted: 0,
-            nudgesActedOn: 0,
+            nudgesActedOn: completedNudges.count,
             vsLastPeriodDelta: 0,
-            vsNationalAverageDelta: totalKg - (12.5 * periodMultiplier(period))
+            vsNationalAverageDelta: netTotalKg - (12.5 * periodMultiplier(period))
         )
     }
 

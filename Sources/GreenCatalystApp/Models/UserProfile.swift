@@ -69,6 +69,9 @@ final class UserProfile: Identifiable {
     var weeklyEmailEnabled: Bool
     var notificationEnabled: Bool
 
+    // Apple ID
+    var appleUserIdentifier: String?
+
     // Gamification
     var totalPoints: Int
     var level: Int
@@ -81,7 +84,8 @@ final class UserProfile: Identifiable {
         avatarSystemIcon: String = "person.circle.fill",
         targetKgPerDay: Double = 8.0,
         locationCity: String? = nil,
-        dietaryPreference: DietaryPreference = .omnivore
+        dietaryPreference: DietaryPreference = .omnivore,
+        appleUserIdentifier: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -91,6 +95,7 @@ final class UserProfile: Identifiable {
         self.targetKgPerDay = targetKgPerDay
         self.locationCity = locationCity
         self.dietaryPreference = dietaryPreference
+        self.appleUserIdentifier = appleUserIdentifier
         self.permissions = GrantedPermissions()
         self.hasCompletedOnboarding = false
         self.weeklyEmailEnabled = true

@@ -20,6 +20,14 @@
 	<string>1.0</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>GreenCatalyst reads your workouts and activity so it can estimate the carbon impact of your commute.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>GreenCatalyst saves activity data you choose to share so your carbon tracking can stay in sync with Health.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>GreenCatalyst can use your location to detect trips and suggest lower-carbon travel choices.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>GreenCatalyst uses your location while the app is active to estimate trip distance and commute impact.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

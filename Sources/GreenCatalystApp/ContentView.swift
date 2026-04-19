@@ -24,8 +24,25 @@ struct ContentView: View {
 
     @State private var selectedTab: AppTab = .home
     @State private var showOnboarding: Bool = false
+    @State private var isCheckingOnboarding: Bool = true
 
     var body: some View {
+        Group {
+            if isCheckingOnboarding {
+                onboardingLoadingView
+            } else {
+                mainTabView
+            }
+        }
+        .task {
+            await checkOnboardingState()
+        }
+        .onOpenURL { url in
+            handleDeepLink(url)
+        }
+    }
+
+    private var mainTabView: some View {
         TabView(selection: $selectedTab) {
             HomeView()
                 .tabItem { Label(AppTab.home.rawValue,    systemImage: AppTab.home.icon)    }
@@ -44,19 +61,52 @@ struct ContentView: View {
                 .tag(AppTab.siri)
         }
         .tint(.green)
-        .sheet(isPresented: $showOnboarding) {
-            OnboardingView(isPresented: $showOnboarding)
+        .fullScreenCover(isPresented: $showOnboarding) {
+            OnboardingFlowView(isPresented: $showOnboarding)
         }
-        .task {
-            // Show onboarding if first launch
-            let defaults = UserDefaults.standard
-            if !defaults.bool(forKey: "hasSeenOnboarding") {
-                showOnboarding = true
+    }
+
+    private var onboardingLoadingView: some View {
+        ZStack {
+            Color(.systemGroupedBackground)
+                .ignoresSafeArea()
+
+            ProgressView("Loading GreenCatalyst...")
+                .progressViewStyle(.circular)
+        }
+    }
+
+    // MARK: - Onboarding Check
+
+    private func checkOnboardingState() async {
+        // Migrate existing users who completed the old UserDefaults-based onboarding
+        if UserDefaults.standard.bool(forKey: "hasSeenOnboarding") {
+            if let profile = try? await DataStore.shared.fetchUserProfile(),
+               !profile.hasCompletedOnboarding {
+                profile.hasCompletedOnboarding = true
+                try? await DataStore.shared.saveProfile(profile)
+                CloudProfileStore.shared.backupProfile(profile, appleUserID: nil)
             }
         }
-        .onOpenURL { url in
-            handleDeepLink(url)
+
+        // Try restoring from iCloud KV store (handles reinstall case)
+        if let backup = CloudProfileStore.shared.restoreProfile() {
+            if let profile = try? await DataStore.shared.fetchUserProfile(),
+               !profile.hasCompletedOnboarding {
+                profile.name = backup.name
+                profile.email = backup.email
+                profile.dietaryPreference = backup.dietaryPreference
+                profile.targetKgPerDay = backup.targetKgPerDay
+                profile.appleUserIdentifier = backup.appleUserID
+                profile.hasCompletedOnboarding = true
+                try? await DataStore.shared.saveProfile(profile)
+            }
         }
+
+        // Check if onboarding is needed
+        let profile = try? await DataStore.shared.fetchUserProfile()
+        showOnboarding = !(profile?.hasCompletedOnboarding ?? false)
+        isCheckingOnboarding = false
     }
 
     // MARK: - Deep Link
@@ -73,10 +123,33 @@ struct ContentView: View {
     }
 }
 
+// MARK: - OnboardingFlowView
+
+struct OnboardingFlowView: View {
+    @Binding var isPresented: Bool
+    @State private var phase: OnboardingPhase = .carousel
+
+    enum OnboardingPhase {
+        case carousel
+        case userInfo
+    }
+
+    var body: some View {
+        switch phase {
+        case .carousel:
+            OnboardingCarouselView {
+                withAnimation { phase = .userInfo }
+            }
+        case .userInfo:
+            UserInfoOnboardingView(isPresented: $isPresented)
+        }
+    }
+}
+
 // MARK: - OnboardingView
 
-struct OnboardingView: View {
-    @Binding var isPresented: Bool
+struct OnboardingCarouselView: View {
+    let onFinish: () -> Void
     @State private var currentPage: Int = 0
 
     private let pages: [OnboardingPage] = [
@@ -144,12 +217,7 @@ struct OnboardingView: View {
     }
 
     private func finish() {
-        UserDefaults.standard.set(true, forKey: "hasSeenOnboarding")
-        Task {
-            await NotificationManager.shared.requestAuthorization()
-            await HealthKitManager.shared.requestAuthorization()
-        }
-        isPresented = false
+        onFinish()
     }
 }
 

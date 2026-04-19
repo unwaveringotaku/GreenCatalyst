@@ -210,6 +210,26 @@ final class DataStore {
         }
     }
 
+    func fetchCompletedNudges(for period: SummaryPeriod) async throws -> [Nudge] {
+        let start = startDate(for: period)
+        let end = Date.now
+        let descriptor = FetchDescriptor<Nudge>(
+            predicate: #Predicate<Nudge> { nudge in
+                nudge.isCompleted == true
+            },
+            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
+        )
+
+        do {
+            return try context.fetch(descriptor).filter { nudge in
+                guard let completedAt = nudge.completedAt else { return false }
+                return completedAt >= start && completedAt <= end
+            }
+        } catch {
+            throw DataStoreError.fetchFailed(error)
+        }
+    }
+
     func saveNudge(_ nudge: Nudge) async throws {
         context.insert(nudge)
         do {

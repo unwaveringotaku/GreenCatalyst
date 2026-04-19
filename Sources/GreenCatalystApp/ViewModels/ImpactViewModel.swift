@@ -11,7 +11,7 @@ final class ImpactViewModel {
     // MARK: - State
 
     var selectedPeriod: SummaryPeriod = .today
-    var summary: ImpactSummary = .todaySample
+    var summary: ImpactSummary = .empty()
     var historicalEntries: [CarbonEntry] = []
     var weeklyTotals: [DailyTotal] = []
     var isLoading: Bool = false
@@ -52,9 +52,11 @@ final class ImpactViewModel {
         do {
             let profile = try await dataStore.fetchUserProfile()
             let entries = try await dataStore.fetchEntries(for: selectedPeriod)
+            let completedNudges = try await dataStore.fetchCompletedNudges(for: selectedPeriod)
             historicalEntries = entries
             summary = carbonCalculator.buildSummary(
                 entries: entries,
+                completedNudges: completedNudges,
                 period: selectedPeriod,
                 target: profile.targetKgPerDay
             )
