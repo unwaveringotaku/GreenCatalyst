@@ -1,88 +1,76 @@
-# 🌿 GreenCatalyst
+# GreenCatalyst
 
-**Behavior-change sustainability app for iOS & watchOS**
+GreenCatalyst is a SwiftUI sustainability app for iOS, watchOS, and WidgetKit. It helps users log carbon-impacting actions, complete low-carbon nudges, build sustainable habits, and track progress through a daily CO2 ring, impact summaries, and lightweight gamification.
 
-GreenCatalyst helps people understand, track, and reduce their personal carbon footprint through intelligent nudges, HealthKit integration, habit streaks, and real-time CO₂ feedback — all powered by on-device intelligence.
+## Current Product Surface
 
----
-
-## What It Does
-
-- **Carbon Dashboard** — Daily CO₂ breakdown across energy, transport, food, and shopping
-- **Smart Nudges** — Personalized, time-sensitive actions with CO₂ and cost savings
-- **Habit Streaks** — Build sustainable routines with streak tracking and reminders
-- **HealthKit Integration** — Automatically infers transport mode (walking, cycling, driving) from step/workout data
-- **Location Awareness** — Detects commute trips and geofences to suggest contextual actions
-- **Siri Shortcuts** — "Hey Siri, log my bike commute" or "What's my carbon score?"
-- **watchOS Companion** — Ring view + daily nudge on your wrist
-- **WidgetKit Widgets** — Glanceable CO₂ ring on your Home Screen
-
----
+- Home
+  - Daily CO2 ring and net-emissions summary
+  - Quick log flow for transport and manual carbon entries
+  - Actionable nudges with CO2, cost, and points impact
+  - Level guide sheet from the current level indicator
+  - Recent entries list
+- Impact
+  - Period summaries for today, week, month, and year
+  - Category breakdowns and comparison metrics
+  - CSV export of historical entries
+- Habits
+  - Default sustainable habits on first launch
+  - Streak tracking, reminders, and edit flow
+  - Habit completions contribute to saved CO2, saved cost, and points
+  - Matching nudges can mark the corresponding habit as completed
+- Onboarding and profile
+  - Carousel onboarding followed by user-info capture
+  - SwiftData-backed profile storage
+  - iCloud key-value backup and restore path where supported
+- Integrations
+  - App Intents for Siri / Shortcuts
+  - HealthKit sync entry point
+  - watchOS companion views
+  - WidgetKit extension
 
 ## Tech Stack
 
 | Layer | Technology |
-|---|---|
+| --- | --- |
 | UI | SwiftUI |
-| State Management | `@Observable` macro (Swift 5.9+) |
-| Persistence | SwiftData + UserDefaults |
-| Health Data | HealthKit |
+| State | Observation with `@Observable` |
+| Persistence | SwiftData, `UserDefaults`, `NSUbiquitousKeyValueStore` |
+| Intents | App Intents |
+| Health | HealthKit |
 | Location | CoreLocation |
 | Notifications | UserNotifications |
-| Siri | AppIntents framework |
 | Widgets | WidgetKit |
-| Watch | watchOS 10 + WatchConnectivity |
-| Build System | Swift Package Manager |
-| Minimum OS | iOS 17 / watchOS 10 |
-
----
+| Watch | watchOS companion target |
+| Tests | Swift Testing |
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        GreenCatalyst iOS                        │
-│                                                                 │
-│  ┌──────────┐   ┌──────────────┐   ┌───────────────────────┐  │
-│  │  Views   │──▶│  ViewModels  │──▶│       Services        │  │
-│  │          │   │ (@Observable)│   │                       │  │
-│  │HomeView  │   │HomeViewModel │   │ CarbonCalculator      │  │
-│  │ImpactView│   │ImpactVM      │   │ HealthKitManager      │  │
-│  │HabitsView│   │HabitsVM      │   │ LocationManager       │  │
-│  └──────────┘   └──────────────┘   │ NotificationManager   │  │
-│                                    │ DataStore (SwiftData)  │  │
-│  ┌──────────┐                      └───────────────────────┘  │
-│  │ AppIntents│                                                  │
-│  │ LogActivity│──────────────────────────────────────────────▶ │
-│  │ GetScore   │         Siri / Shortcuts                        │
-│  └──────────┘                                                  │
-└──────────────────────────┬──────────────────────────────────────┘
-                           │ WatchConnectivity
-           ┌───────────────▼──────────────┐
-           │     GreenCatalyst watchOS     │
-           │                              │
-           │  WatchHomeView (Ring + Nudge) │
-           │  WatchComplicationView        │
-           └──────────────────────────────┘
+The app follows a straightforward SwiftUI architecture:
 
-           ┌──────────────────────────────┐
-           │   GreenCatalystWidgets        │
-           │   Small: Ring + CO₂ number   │
-           │   Medium: Ring + Top Nudge   │
-           └──────────────────────────────┘
-```
+- Views render the UI and own local presentation state.
+- ViewModels coordinate user actions, loading, and cross-feature updates.
+- Services contain persistence, calculations, and OS integrations.
+- SwiftData models store entries, nudges, habits, and the user profile.
 
----
+Primary app areas:
 
-## Setup Instructions
+- `Sources/GreenCatalystApp/Views`
+- `Sources/GreenCatalystApp/ViewModels`
+- `Sources/GreenCatalystApp/Services`
+- `Sources/GreenCatalystApp/Models`
+- `Sources/GreenCatalystApp/Intents`
 
-### Prerequisites
+## Setup
 
-- Xcode 15.2+
-- iOS 17+ device or simulator
-- watchOS 10+ (for Watch companion)
+### Requirements
 
-### Clone & Open
+- Xcode 15.2 or newer
+- iOS 17+ simulator or device
+- watchOS 10+ for the watch target
+- `xcodegen` if regenerating the project from `project.yml`
+
+### Open the project
 
 ```bash
 git clone https://github.com/YOUR_USERNAME/GreenCatalyst.git
@@ -90,126 +78,87 @@ cd GreenCatalyst
 ./scripts/run-ios.sh
 ```
 
-This repo now includes an XcodeGen project spec at `project.yml` plus the app `Info.plist`.
-The helper script will:
+The helper script:
 
-1. verify full Xcode is selected
-2. generate `GreenCatalyst.xcodeproj` with `xcodegen` if needed
-3. open the iOS app project in Xcode
+1. verifies that full Xcode is selected
+2. generates `GreenCatalyst.xcodeproj` from `project.yml` if needed
+3. opens the project in Xcode
 
-If `xcodegen` is missing, install it with:
+If `xcodegen` is missing:
 
 ```bash
 brew install xcodegen
 ```
 
-Then select the `GreenCatalystApp` scheme and run on an iOS 17+ simulator or device.
+You can also regenerate manually:
 
-### Required Permissions
-
-Add the following keys to your `Info.plist`:
-
-```xml
-<!-- HealthKit -->
-<key>NSHealthShareUsageDescription</key>
-<string>GreenCatalyst reads your activity data to automatically track transport emissions.</string>
-<key>NSHealthUpdateUsageDescription</key>
-<string>GreenCatalyst logs carbon-saving workouts to your Health app.</string>
-
-<!-- Location -->
-<key>NSLocationWhenInUseUsageDescription</key>
-<string>GreenCatalyst detects your commute to estimate transport emissions.</string>
-<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-<string>GreenCatalyst uses background location to automatically log trips.</string>
-
-<!-- Notifications -->
-<!-- Requested at runtime via UNUserNotificationCenter -->
+```bash
+xcodegen generate
+open GreenCatalyst.xcodeproj
 ```
 
-### HealthKit Capability
+## Signing And Capability Notes
 
-In Xcode, under your target's **Signing & Capabilities**, add:
+The repo builds without requiring every Apple capability to be enabled, but some features are limited unless the target is signed with a properly provisioned Apple Developer account.
+
+Features that require additional capability support:
+
 - HealthKit
-- Background Modes → Background fetch, Remote notifications
+- Siri / App Shortcuts related entitlements
+- Sign in with Apple
+- iCloud key-value backup / restore
 
-### Widget Extension Setup
+On a Personal Team build, capability-backed features may be unavailable or intentionally degraded so the app remains buildable.
 
-Add a new **Widget Extension** target in Xcode named `GreenCatalystWidgets`. The source is already in `Sources/GreenCatalystWidgets/`.
+## Persistence Notes
 
----
+- SwiftData is the main local persistence layer.
+- The app stores its SwiftData file in Application Support.
+- If the local persistent store is incompatible after schema changes, the app will attempt to recreate the local store instead of crashing on launch.
+- If persistent store creation still fails after recovery, the app falls back to an in-memory store for that session.
 
 ## Project Structure
 
-```
+```text
 GreenCatalyst/
-├── Package.swift                   # SPM manifest
-├── .gitignore
+├── Config/
+├── GreenCatalyst.xcodeproj/
+├── Package.swift
 ├── README.md
 ├── Sources/
-│   ├── GreenCatalystApp/           # iOS App
-│   │   ├── GreenCatalystApp.swift  # App entry point
-│   │   ├── ContentView.swift       # Root tab view
-│   │   ├── Models/                 # Pure data models (Codable, Identifiable)
-│   │   ├── ViewModels/             # @Observable business logic
-│   │   ├── Views/                  # SwiftUI screens + components
-│   │   ├── Services/               # HealthKit, Location, Notifications, Data
-│   │   └── Intents/                # AppIntents for Siri Shortcuts
-│   ├── GreenCatalystWatch/         # watchOS companion
-│   └── GreenCatalystWidgets/       # WidgetKit extension
-└── prototype/                      # HTML prototype (for design reference)
+│   ├── GreenCatalystApp/
+│   │   ├── ContentView.swift
+│   │   ├── GreenCatalystApp.swift
+│   │   ├── Intents/
+│   │   ├── Models/
+│   │   ├── Services/
+│   │   ├── ViewModels/
+│   │   └── Views/
+│   ├── GreenCatalystWatch/
+│   └── GreenCatalystWidgets/
+├── Tests/
+│   └── GreenCatalystTests/
+├── project.yml
+└── scripts/
 ```
 
----
+## Development Notes
 
-## Roadmap
+- The Home quick-log sheet now follows the same visual design language as the Habits creation flow.
+- Completing a habit writes a negative carbon entry and updates saved metrics and points.
+- Completing a matching nudge can also complete the corresponding habit without double-counting points.
+- Home and Impact refresh when habit data changes so summaries stay in sync across tabs.
 
-### v1.0 (MVP)
-- [x] Carbon dashboard with manual logging
-- [x] Habit tracker with streaks
-- [x] Nudge engine with cost + CO₂ savings
-- [x] HealthKit transport inference
-- [x] watchOS companion ring view
-- [x] Siri Shortcuts (LogActivity, GetCarbonScore)
-- [x] Home Screen widgets (small + medium)
+## Testing
 
-### v1.1
-- [ ] Social challenges — compete with friends on carbon reduction
-- [ ] Carbon marketplace — offset credits integration
-- [ ] AI-powered meal scanner (photo → CO₂ estimate)
-- [ ] Business travel expense sync
+Unit coverage lives in `Tests/GreenCatalystTests/GreenCatalystTests.swift` using the Swift Testing framework.
 
-### v1.2
-- [ ] Team/company dashboards for B2B
-- [ ] Carbon budget API for developers
-- [ ] Apple Watch Ultra always-on complication
-- [ ] CarPlay integration for real-time trip scoring
+For app-level verification:
 
-### v2.0
-- [ ] Machine learning model for personalized nudge timing
-- [ ] AR footprint visualizer ("this steak = this much CO₂")
-- [ ] Verified carbon credits marketplace
-- [ ] ESG reporting export for enterprise
-
----
-
-## Contributing
-
-1. Fork the repo
-2. Create a feature branch: `git checkout -b feature/my-feature`
-3. Commit: `git commit -m 'Add my feature'`
-4. Push: `git push origin feature/my-feature`
-5. Open a Pull Request
-
-Please follow Swift API Design Guidelines and add unit tests for any new service logic.
-
----
+- build the `GreenCatalystApp` scheme in Xcode
+- run the app and verify onboarding, home logging, nudges, and habits flows
+- run tests from Xcode if the local test host configuration is valid
 
 ## License
 
-MIT License — see [LICENSE](LICENSE) for details.
-
----
-
-## Contact
-
-Built with ☀️ by the GreenCatalyst team. Questions? Open an issue or reach out at hello@greencatalyst.app
+MIT. See [LICENSE](LICENSE).

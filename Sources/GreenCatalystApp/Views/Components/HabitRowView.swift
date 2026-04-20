@@ -20,50 +20,7 @@ struct HabitRowView: View {
             // Completion button
             completionButton
 
-            // Habit info
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 6) {
-                    Text(habit.name)
-                        .font(.subheadline.bold())
-                        .strikethrough(habit.isCompletedToday)
-                        .foregroundStyle(habit.isCompletedToday ? .secondary : .primary)
-
-                    if habit.isStreakAtRisk {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .font(.caption)
-                            .foregroundStyle(.orange)
-                    }
-                }
-
-                HStack(spacing: 8) {
-                    // Category chip
-                    Label(habit.category.rawValue, systemImage: habit.category.icon)
-                        .font(.caption2.bold())
-                        .foregroundStyle(Color(hex: habit.category.color))
-
-                    // Frequency
-                    Text("·  \(habit.frequency.rawValue)")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-
-                // Savings
-                HStack(spacing: 6) {
-                    Label(String(format: "%.1f kg CO₂", habit.co2PerAction), systemImage: "leaf.fill")
-                        .font(.caption2)
-                        .foregroundStyle(.green)
-                    if habit.costPerAction > 0 {
-                        Label(String(format: "£%.2f", habit.costPerAction), systemImage: "sterlingsign.circle.fill")
-                            .font(.caption2)
-                            .foregroundStyle(.blue)
-                    }
-                }
-            }
-
-            Spacer()
-
-            // Streak badge
-            streakBadge
+            rowContent
         }
         .padding()
         .background(Color(.secondarySystemGroupedBackground))
@@ -85,6 +42,54 @@ struct HabitRowView: View {
                 .tint(.green)
             }
         }
+    }
+
+    private var rowContent: some View {
+        HStack(spacing: 14) {
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 6) {
+                    Text(habit.name)
+                        .font(.subheadline.bold())
+                        .strikethrough(habit.isCompletedToday)
+                        .foregroundStyle(habit.isCompletedToday ? .secondary : .primary)
+
+                    if habit.isStreakAtRisk {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                    }
+                }
+
+                HStack(spacing: 8) {
+                    Label(habit.category.rawValue, systemImage: habit.category.icon)
+                        .font(.caption2.bold())
+                        .foregroundStyle(Color(hex: habit.category.color))
+
+                    Text("·  \(habit.frequency.rawValue)")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+
+                HStack(spacing: 6) {
+                    Label(String(format: "%.1f kg CO₂", habit.co2PerAction), systemImage: "leaf.fill")
+                        .font(.caption2)
+                        .foregroundStyle(.green)
+                    if habit.costPerAction > 0 {
+                        Label(String(format: "£%.2f", habit.costPerAction), systemImage: "sterlingsign.circle.fill")
+                            .font(.caption2)
+                            .foregroundStyle(.blue)
+                    }
+                }
+            }
+
+            Spacer()
+
+            streakBadge
+        }
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onEdit)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityHint("Opens habit details")
     }
 
     // MARK: - Completion Button

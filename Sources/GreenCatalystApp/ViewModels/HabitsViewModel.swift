@@ -89,10 +89,17 @@ final class HabitsViewModel {
 
     func completeHabit(_ habit: Habit) {
         guard !habit.isCompletedToday else { return }
-        habit.markCompleted()
+        habit.markCompleted(source: .habit)
+
+        let pointsEarned = Int((max(0, habit.co2PerAction) * 10).rounded())
+
         Task {
             do {
+                let profile = try await dataStore.fetchUserProfile()
+                profile.addPoints(pointsEarned)
+
                 try await dataStore.saveHabit(habit)
+
                 // Log as a carbon entry too
                 let entry = CarbonEntry(
                     category: habit.category,
@@ -101,6 +108,9 @@ final class HabitsViewModel {
                     notes: "Habit: \(habit.name)"
                 )
                 try await dataStore.saveEntry(entry)
+                try await dataStore.saveProfile(profile)
+
+                NotificationCenter.default.post(name: .habitDataDidChange, object: nil)
                 await loadHabits()
             } catch {
                 await MainActor.run { errorMessage = error.localizedDescription }

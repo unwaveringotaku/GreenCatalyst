@@ -9,6 +9,11 @@ enum HabitFrequency: String, Codable, CaseIterable {
     case monthly = "Monthly"
 }
 
+enum HabitCompletionSource: String, Codable {
+    case habit
+    case nudge
+}
+
 // MARK: - Habit
 
 /// A sustainable behaviour the user is trying to build.
@@ -29,6 +34,7 @@ final class Habit: Identifiable {
     var isActive: Bool
     var reminderTime: Date?         // nil = no reminder
     var completionDates: [Date]
+    var completionSourceTags: [String]
     var createdAt: Date
 
     init(
@@ -59,6 +65,7 @@ final class Habit: Identifiable {
         self.isActive = isActive
         self.reminderTime = reminderTime
         self.completionDates = []
+        self.completionSourceTags = []
         self.createdAt = .now
     }
 
@@ -89,8 +96,9 @@ final class Habit: Identifiable {
     // MARK: - Methods
 
     /// Mark the habit as completed now, updating streak logic.
-    func markCompleted(at date: Date = .now) {
+    func markCompleted(at date: Date = .now, source: HabitCompletionSource = .habit) {
         completionDates.append(date)
+        completionSourceTags.append(source.rawValue)
         let calendar = Calendar.current
 
         if let last = lastCompleted {

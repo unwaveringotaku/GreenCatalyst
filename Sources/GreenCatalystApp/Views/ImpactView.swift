@@ -43,6 +43,9 @@ struct ImpactView: View {
             .navigationTitle("Your Impact")
             .navigationBarTitleDisplayMode(.large)
             .task { viewModel.onAppear() }
+            .onReceive(NotificationCenter.default.publisher(for: .habitDataDidChange)) { _ in
+                Task { await viewModel.loadData() }
+            }
             .onChange(of: viewModel.selectedPeriod) { _, _ in viewModel.onPeriodChanged() }
             .alert("Error", isPresented: .constant(viewModel.errorMessage != nil)) {
                 Button("OK") { viewModel.errorMessage = nil }

@@ -19,6 +19,24 @@ enum DataStoreError: LocalizedError {
     }
 }
 
+struct HabitCompletionStats: Equatable {
+    let count: Int
+    let totalKgSaved: Double
+    let totalCostSaved: Double
+    let pointsEarned: Int
+
+    static let zero = HabitCompletionStats(
+        count: 0,
+        totalKgSaved: 0,
+        totalCostSaved: 0,
+        pointsEarned: 0
+    )
+}
+
+extension Notification.Name {
+    static let habitDataDidChange = Notification.Name("habitDataDidChange")
+}
+
 // MARK: - DataStore
 
 /// SwiftData-backed persistence layer.
@@ -31,37 +49,41 @@ final class DataStore {
     private var modelContainer: ModelContainer?
     private var modelContext: ModelContext?
 
-    init() {
-        do {
-            let schema = Schema([
-                CarbonEntry.self,
-                Habit.self,
-                Nudge.self,
-                UserProfile.self,
-            ])
-            let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
-            let container = try ModelContainer(for: schema, configurations: [config])
-            modelContainer = container
-            modelContext = ModelContext(container)
-        } catch {
-            print("[DataStore] Failed to create ModelContainer: \(error)")
+    private enum StorageMode {
+        case persistent
+        case inMemory
+    }
+
+    private init(storageMode: StorageMode = .persistent) {
+        let schema = Self.makeSchema()
+
+        switch storageMode {
+        case .persistent:
+            if configurePersistentStore(schema: schema) {
+                return
+            }
+
+            do {
+                try Self.resetPersistentStoreFiles()
+                if configurePersistentStore(schema: schema) {
+                    print("[DataStore] Recreated persistent store after reset.")
+                    return
+                }
+            } catch {
+                print("[DataStore] Failed to reset persistent store: \(error)")
+            }
+
+            print("[DataStore] Falling back to in-memory store.")
+            configureInMemoryStore(schema: schema)
+
+        case .inMemory:
+            configureInMemoryStore(schema: schema)
         }
     }
 
     /// In-memory store for testing
     static func makeInMemory() -> DataStore {
-        let store = DataStore()
-        // Re-init with in-memory config
-        do {
-            let schema = Schema([CarbonEntry.self, Habit.self, Nudge.self, UserProfile.self])
-            let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
-            let container = try ModelContainer(for: schema, configurations: [config])
-            store.modelContainer = container
-            store.modelContext = ModelContext(container)
-        } catch {
-            print("[DataStore] Failed to create in-memory container: \(error)")
-        }
-        return store
+        DataStore(storageMode: .inMemory)
     }
 
     private var context: ModelContext {
@@ -178,6 +200,50 @@ final class DataStore {
         }
     }
 
+    func fetchHabitCompletionStats(for period: SummaryPeriod) async throws -> HabitCompletionStats {
+        let start = startDate(for: period)
+        let end = Date.now
+
+        do {
+            let habits = try await fetchHabits()
+            var count = 0
+            var totalKgSaved = 0.0
+            var totalCostSaved = 0.0
+            var pointsEarned = 0
+
+            for habit in habits {
+                let indexedCompletions = habit.completionDates.enumerated().filter { _, completionDate in
+                    completionDate >= start && completionDate <= end
+                }
+
+                guard !indexedCompletions.isEmpty else { continue }
+
+                count += indexedCompletions.count
+
+                for (index, _) in indexedCompletions {
+                    let source = HabitCompletionSource(
+                        rawValue: habit.completionSourceTags[safe: index] ?? HabitCompletionSource.habit.rawValue
+                    ) ?? .habit
+
+                    guard source == .habit else { continue }
+
+                    totalKgSaved += max(0, habit.co2PerAction)
+                    totalCostSaved += max(0, habit.costPerAction)
+                    pointsEarned += Int((max(0, habit.co2PerAction) * 10).rounded())
+                }
+            }
+
+            return HabitCompletionStats(
+                count: count,
+                totalKgSaved: totalKgSaved,
+                totalCostSaved: totalCostSaved,
+                pointsEarned: pointsEarned
+            )
+        } catch {
+            throw DataStoreError.fetchFailed(error)
+        }
+    }
+
     // MARK: - Nudges
 
     func fetchActiveNudges() async throws -> [Nudge] {
@@ -284,5 +350,81 @@ final class DataStore {
         case .year:     return cal.date(byAdding: .year, value: -1, to: now)!
         case .allTime:  return cal.date(byAdding: .year, value: -10, to: now)!
         }
+    }
+
+    private static func makeSchema() -> Schema {
+        Schema([
+            CarbonEntry.self,
+            Habit.self,
+            Nudge.self,
+            UserProfile.self,
+        ])
+    }
+
+    @discardableResult
+    private func configurePersistentStore(schema: Schema) -> Bool {
+        do {
+            let config = try Self.makePersistentConfiguration(schema: schema)
+            let container = try ModelContainer(for: schema, configurations: [config])
+            modelContainer = container
+            modelContext = ModelContext(container)
+            return true
+        } catch {
+            print("[DataStore] Failed to create persistent ModelContainer: \(error)")
+            return false
+        }
+    }
+
+    private func configureInMemoryStore(schema: Schema) {
+        do {
+            let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+            let container = try ModelContainer(for: schema, configurations: [config])
+            modelContainer = container
+            modelContext = ModelContext(container)
+        } catch {
+            fatalError("[DataStore] Failed to create in-memory ModelContainer: \(error)")
+        }
+    }
+
+    private static func makePersistentConfiguration(schema: Schema) throws -> ModelConfiguration {
+        ModelConfiguration("GreenCatalyst", schema: schema, url: try persistentStoreURL())
+    }
+
+    private static func persistentStoreURL() throws -> URL {
+        let fileManager = FileManager.default
+        let appSupportURL = try fileManager.url(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        )
+        let storeDirectoryURL = appSupportURL.appendingPathComponent("GreenCatalyst", isDirectory: true)
+
+        if !fileManager.fileExists(atPath: storeDirectoryURL.path) {
+            try fileManager.createDirectory(at: storeDirectoryURL, withIntermediateDirectories: true)
+        }
+
+        return storeDirectoryURL.appendingPathComponent("GreenCatalyst.store")
+    }
+
+    private static func resetPersistentStoreFiles() throws {
+        let fileManager = FileManager.default
+        let storeURL = try persistentStoreURL()
+        let sidecarURLs = [
+            storeURL,
+            URL(fileURLWithPath: storeURL.path + "-shm"),
+            URL(fileURLWithPath: storeURL.path + "-wal"),
+        ]
+
+        for url in sidecarURLs where fileManager.fileExists(atPath: url.path) {
+            try fileManager.removeItem(at: url)
+        }
+    }
+}
+
+private extension Array {
+    subscript(safe index: Int) -> Element? {
+        guard indices.contains(index) else { return nil }
+        return self[index]
     }
 }

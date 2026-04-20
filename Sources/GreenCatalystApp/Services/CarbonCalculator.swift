@@ -115,11 +115,13 @@ final class CarbonCalculator {
     func buildDailySummary(
         entries: [CarbonEntry],
         completedNudges: [Nudge] = [],
+        habitStats: HabitCompletionStats = .zero,
         target: Double
     ) -> ImpactSummary {
         buildSummary(
             entries: entries,
             completedNudges: completedNudges,
+            habitStats: habitStats,
             period: .today,
             target: target
         )
@@ -129,16 +131,20 @@ final class CarbonCalculator {
     func buildSummary(
         entries: [CarbonEntry],
         completedNudges: [Nudge] = [],
+        habitStats: HabitCompletionStats = .zero,
         period: SummaryPeriod,
         target: Double
     ) -> ImpactSummary {
         let totalKg = entries.reduce(0.0) { $0 + $1.kgCO2 }
         let totalMagnitudeKg = entries.reduce(0.0) { $0 + abs($1.kgCO2) }
-        let totalSaved = completedNudges.reduce(0.0) { $0 + max(0, $1.co2Saving) }
-        let totalCostSaved = completedNudges.reduce(0.0) { $0 + max(0, $1.costSaving) }
-        let totalPointsEarned = completedNudges.reduce(0) { partialResult, nudge in
+        let nudgeKgSaved = completedNudges.reduce(0.0) { $0 + max(0, $1.co2Saving) }
+        let nudgeCostSaved = completedNudges.reduce(0.0) { $0 + max(0, $1.costSaving) }
+        let nudgePointsEarned = completedNudges.reduce(0) { partialResult, nudge in
             partialResult + Int((max(0, nudge.co2Saving) * 10).rounded())
         }
+        let totalSaved = nudgeKgSaved + habitStats.totalKgSaved
+        let totalCostSaved = nudgeCostSaved + habitStats.totalCostSaved
+        let totalPointsEarned = nudgePointsEarned + habitStats.pointsEarned
 
         // Per-category breakdown
         let categories = CarbonCategory.allCases
@@ -171,7 +177,7 @@ final class CarbonCalculator {
             byCategory: breakdowns,
             costSaved: totalCostSaved,
             pointsEarned: totalPointsEarned,
-            habitsCompleted: 0,
+            habitsCompleted: habitStats.count,
             nudgesActedOn: completedNudges.count,
             vsLastPeriodDelta: 0,
             vsNationalAverageDelta: totalKg - (12.5 * periodMultiplier(period))

@@ -41,10 +41,13 @@ struct HabitsView: View {
             .sheet(isPresented: $showAddSheet, onDismiss: { Task { await viewModel.loadHabits() } }) {
                 AddHabitSheet(viewModel: viewModel)
             }
-            .sheet(item: $habitToEdit) { habit in
+            .sheet(item: $habitToEdit, onDismiss: { Task { await viewModel.loadHabits() } }) { habit in
                 EditHabitSheet(habit: habit, viewModel: viewModel)
             }
             .task { viewModel.onAppear() }
+            .onReceive(NotificationCenter.default.publisher(for: .habitDataDidChange)) { _ in
+                Task { await viewModel.loadHabits() }
+            }
             .alert("Error", isPresented: .constant(viewModel.errorMessage != nil)) {
                 Button("OK") { viewModel.errorMessage = nil }
             } message: {

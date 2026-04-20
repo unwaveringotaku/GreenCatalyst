@@ -6,6 +6,7 @@ struct HomeView: View {
 
     @State private var viewModel = HomeViewModel()
     @State private var showLogSheet = false
+    @State private var showLevelInfo = false
     @State private var selectedCategory: CarbonCategory = .transport
 
     var body: some View {
@@ -54,12 +55,25 @@ struct HomeView: View {
             .sheet(isPresented: $showLogSheet) {
                 LogEntrySheet(viewModel: viewModel)
             }
+            .sheet(isPresented: $showLevelInfo) {
+                NavigationStack {
+                    LevelInfoSheet(
+                        currentLevel: viewModel.userProfile.level,
+                        currentTitle: viewModel.userProfile.levelTitle,
+                        pointsToNextLevel: viewModel.userProfile.pointsToNextLevel
+                    )
+                }
+                .presentationDetents([.medium, .large])
+            }
             .alert("Error", isPresented: .constant(viewModel.errorMessage != nil)) {
                 Button("OK") { viewModel.errorMessage = nil }
             } message: {
                 Text(viewModel.errorMessage ?? "")
             }
             .task { viewModel.onAppear() }
+            .onReceive(NotificationCenter.default.publisher(for: .habitDataDidChange)) { _ in
+                Task { await viewModel.loadData() }
+            }
             .refreshable { await viewModel.loadData() }
         }
     }
@@ -72,9 +86,18 @@ struct HomeView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Good \(greetingTime), \(viewModel.userProfile.name.components(separatedBy: " ").first ?? "there") 👋")
                         .font(.title2.bold())
-                    Text("Level \(viewModel.userProfile.level) · \(viewModel.userProfile.levelTitle)")
+                    Button {
+                        showLevelInfo = true
+                    } label: {
+                        HStack(spacing: 4) {
+                            Text("Level \(viewModel.userProfile.level) · \(viewModel.userProfile.levelTitle)")
+                            Image(systemName: "info.circle")
+                                .font(.caption)
+                        }
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
                 }
                 Spacer()
                 ActivityRingView(
@@ -168,6 +191,98 @@ struct ScorePill: View {
     }
 }
 
+// MARK: - LevelInfoSheet
+
+struct LevelInfoSheet: View {
+    let currentLevel: Int
+    let currentTitle: String
+    let pointsToNextLevel: Int
+    @Environment(\.dismiss) private var dismiss
+
+    private let levels: [(name: String, threshold: Int, purpose: String)] = [
+        ("Seedling", 0, "Learn the basics and start building your streak."),
+        ("Sprout", 100, "Show early consistency with greener daily choices."),
+        ("Sapling", 300, "Turn low-carbon actions into reliable habits."),
+        ("Tree", 600, "Make sustainability part of your normal routine."),
+        ("Forest Guardian", 1000, "Lead with strong long-term impact across days and weeks."),
+        ("Carbon Champion", 3000, "Reach expert-level consistency and climate impact.")
+    ]
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("How Levels Work")
+                            .font(.headline)
+                        Text("Levels track long-term consistency. You move up by earning points from completed nudges and low-carbon actions.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer()
+
+                    Image(systemName: "info.circle.fill")
+                        .foregroundStyle(.green)
+                }
+
+                HStack(spacing: 10) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Current")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text("Level \(currentLevel) · \(currentTitle)")
+                            .font(.subheadline.bold())
+                    }
+
+                    Spacer()
+
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("Next Step")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text(pointsToNextLevel > 0 ? "\(pointsToNextLevel) pts to next level" : "Top level reached")
+                            .font(.subheadline.bold())
+                            .foregroundStyle(.green)
+                    }
+                }
+
+                VStack(spacing: 8) {
+                    ForEach(Array(levels.enumerated()), id: \.offset) { index, level in
+                        HStack(alignment: .top, spacing: 10) {
+                            Text("\(index + 1)")
+                                .font(.caption.bold())
+                                .foregroundStyle(.white)
+                                .frame(width: 22, height: 22)
+                                .background(index + 1 == currentLevel ? Color.green : Color.gray.opacity(0.5))
+                                .clipShape(Circle())
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("\(level.name) · \(level.threshold)+ pts")
+                                    .font(.subheadline.bold())
+                                Text(level.purpose)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            Spacer()
+                        }
+                    }
+                }
+            }
+            .padding()
+        }
+        .background(Color(.systemGroupedBackground))
+        .navigationTitle("Level Guide")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Done") { dismiss() }
+            }
+        }
+    }
+}
+
 // MARK: - SectionHeader
 
 struct SectionHeader: View {
@@ -234,44 +349,105 @@ struct LogEntrySheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Category") {
-                    Picker("Category", selection: $selectedCategory) {
-                        ForEach(CarbonCategory.allCases) { cat in
-                            Label(cat.rawValue, systemImage: cat.icon).tag(cat)
+                Section {
+                    VStack(alignment: .leading, spacing: 14) {
+                        HStack(spacing: 12) {
+                            Image(systemName: selectedCategory.icon)
+                                .font(.title2)
+                                .foregroundStyle(.white)
+                                .frame(width: 44, height: 44)
+                                .background(Color(hex: selectedCategory.color))
+                                .clipShape(Circle())
+
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("Quick Carbon Log")
+                                    .font(.headline)
+                                Text("Capture a single action without leaving the home flow.")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
+
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Estimated impact")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Text(String(format: "%.2f kg CO₂e", estimatedKg))
+                                .font(.title3.bold())
+                            Text(impactDescription)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color(.tertiarySystemFill))
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
                     }
-                    .pickerStyle(.segmented)
+                }
+                .listRowBackground(Color.clear)
+
+                Section("Category") {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 12) {
+                            ForEach(CarbonCategory.allCases) { category in
+                                categoryChip(for: category)
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    }
                 }
 
                 if selectedCategory == .transport {
-                    Section("Transport") {
+                    Section("Transport Details") {
                         Picker("Mode", selection: $selectedMode) {
                             ForEach(TransportMode.allCases, id: \.self) { mode in
                                 Label(mode.rawValue, systemImage: mode.icon).tag(mode)
                             }
                         }
-                        TextField("Distance (km)", text: $distanceText)
-                            .keyboardType(.decimalPad)
+                        .pickerStyle(.navigationLink)
+
+                        LabeledContent("Distance (km)") {
+                            TextField("e.g. 14.5", text: $distanceText)
+                                .keyboardType(.decimalPad)
+                                .multilineTextAlignment(.trailing)
+                                .frame(width: 90)
+                        }
+
+                        Label(
+                            "\(selectedMode.rawValue) emits \(String(format: "%.3f", selectedMode.kgPerKm)) kg per km",
+                            systemImage: selectedMode.icon
+                        )
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                     }
                 } else {
-                    Section("CO₂ Amount") {
-                        TextField("kg CO₂e (e.g. 1.5)", text: $manualKgText)
-                            .keyboardType(.decimalPad)
+                    Section("Entry Details") {
+                        LabeledContent("CO₂ amount (kg)") {
+                            TextField("e.g. 1.5", text: $manualKgText)
+                                .keyboardType(.decimalPad)
+                                .multilineTextAlignment(.trailing)
+                                .frame(width: 90)
+                        }
+
+                        Label("Use your best estimate for this one-off activity.", systemImage: "chart.bar.doc.horizontal")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
                 }
 
                 Section("Notes (optional)") {
-                    TextField("Add a note", text: $notes)
+                    TextField("What was this for?", text: $notes, axis: .vertical)
+                        .lineLimit(2...4)
                 }
             }
-            .navigationTitle("Log Entry")
+            .navigationTitle("New Entry")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
+                    Button("Add") {
                         save()
                         dismiss()
                     }
@@ -286,6 +462,42 @@ struct LogEntrySheet: View {
             return Double(distanceText) != nil
         }
         return Double(manualKgText) != nil
+    }
+
+    private var estimatedKg: Double {
+        if selectedCategory == .transport {
+            return (Double(distanceText) ?? 0) * selectedMode.kgPerKm
+        }
+        return Double(manualKgText) ?? 0
+    }
+
+    private var impactDescription: String {
+        if selectedCategory == .transport {
+            return "Based on \(selectedMode.rawValue.lowercased()) over \(distanceText.isEmpty ? "0" : distanceText) km."
+        }
+        return "This amount will be added to your \(selectedCategory.rawValue.lowercased()) footprint."
+    }
+
+    @ViewBuilder
+    private func categoryChip(for category: CarbonCategory) -> some View {
+        Button {
+            selectedCategory = category
+        } label: {
+            VStack(spacing: 6) {
+                Image(systemName: category.icon)
+                    .font(.title3)
+                    .foregroundStyle(selectedCategory == category ? .white : Color(hex: category.color))
+                    .frame(width: 42, height: 42)
+                    .background(selectedCategory == category ? Color(hex: category.color) : Color(.tertiarySystemFill))
+                    .clipShape(Circle())
+
+                Text(category.rawValue)
+                    .font(.caption.bold())
+                    .foregroundStyle(.primary)
+            }
+            .frame(width: 78)
+        }
+        .buttonStyle(.plain)
     }
 
     private func save() {

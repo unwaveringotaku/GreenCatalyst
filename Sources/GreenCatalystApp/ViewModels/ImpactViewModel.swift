@@ -53,10 +53,12 @@ final class ImpactViewModel {
             let profile = try await dataStore.fetchUserProfile()
             let entries = try await dataStore.fetchEntries(for: selectedPeriod)
             let completedNudges = try await dataStore.fetchCompletedNudges(for: selectedPeriod)
+            let habitStats = try await dataStore.fetchHabitCompletionStats(for: selectedPeriod)
             historicalEntries = entries
             summary = carbonCalculator.buildSummary(
                 entries: entries,
                 completedNudges: completedNudges,
+                habitStats: habitStats,
                 period: selectedPeriod,
                 target: profile.targetKgPerDay
             )

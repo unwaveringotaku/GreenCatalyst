@@ -58,6 +58,7 @@ final class HomeViewModel {
             let fetchedEntries = try await dataStore.fetchTodaysEntries()
             let fetchedNudges = try await dataStore.fetchActiveNudges()
             let completedNudges = try await dataStore.fetchCompletedNudges(for: .today)
+            let habitStats = try await dataStore.fetchHabitCompletionStats(for: .today)
             let fetchedProfile = try await dataStore.fetchUserProfile()
 
             recentEntries = fetchedEntries
@@ -68,6 +69,7 @@ final class HomeViewModel {
             todaySummary = carbonCalculator.buildDailySummary(
                 entries: fetchedEntries,
                 completedNudges: completedNudges,
+                habitStats: habitStats,
                 target: fetchedProfile.targetKgPerDay
             )
         } catch {
@@ -131,9 +133,18 @@ final class HomeViewModel {
         )
         Task {
             do {
+                let linkedHabit = try await matchingHabit(for: nudge)
+                if let linkedHabit {
+                    linkedHabit.markCompleted(source: .nudge)
+                    try await dataStore.saveHabit(linkedHabit)
+                }
+
                 try await dataStore.saveEntry(savingsEntry)
                 try await dataStore.saveNudge(nudge)
                 try await dataStore.saveProfile(userProfile)
+                if linkedHabit != nil {
+                    NotificationCenter.default.post(name: .habitDataDidChange, object: nil)
+                }
                 await loadData()
             } catch {
                 await MainActor.run { errorMessage = error.localizedDescription }
@@ -171,5 +182,63 @@ final class HomeViewModel {
     func requestAllPermissions() async {
         await healthKitManager.requestAuthorization()
         await notificationManager.requestAuthorization()
+    }
+
+    private func matchingHabit(for nudge: Nudge) async throws -> Habit? {
+        let habits = try await dataStore.fetchHabits()
+        let candidate = habits
+            .filter { $0.isActive && !$0.isCompletedToday && $0.category == nudge.category }
+            .max { lhs, rhs in
+                matchScore(for: lhs, against: nudge) < matchScore(for: rhs, against: nudge)
+            }
+
+        guard let candidate, matchScore(for: candidate, against: nudge) >= 3 else {
+            return nil
+        }
+
+        return candidate
+    }
+
+    private func matchScore(for habit: Habit, against nudge: Nudge) -> Int {
+        var score = 0
+
+        if habit.icon == nudge.icon {
+            score += 4
+        }
+
+        if abs(habit.co2PerAction - nudge.co2Saving) < 0.05 {
+            score += 3
+        }
+
+        let habitTerms = normalizedTerms(in: "\(habit.name) \(habit.habitDescription)")
+        let nudgeTerms = normalizedTerms(in: "\(nudge.title) \(nudge.nudgeDescription)")
+        score += min(2, habitTerms.intersection(nudgeTerms).count)
+
+        return score
+    }
+
+    private func normalizedTerms(in text: String) -> Set<String> {
+        let stopWords: Set<String> = [
+            "a", "an", "and", "at", "for", "from", "in", "instead", "its",
+            "it", "of", "on", "or", "the", "this", "to", "today", "vs", "your"
+        ]
+
+        return Set(
+            text
+                .lowercased()
+                .components(separatedBy: CharacterSet.alphanumerics.inverted)
+                .filter { !$0.isEmpty }
+                .map { term in
+                    switch term {
+                    case "bike", "biking", "bicycle":
+                        return "cycle"
+                    case "commute":
+                        return "work"
+                    default:
+                        return term
+                    }
+                }
+                .filter { !stopWords.contains($0) }
+        )
     }
 }
