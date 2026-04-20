@@ -18,6 +18,7 @@ final class HabitsViewModel {
     var isLoading: Bool = false
     var errorMessage: String? = nil
     var currencyCode: String = Locale.current.currency?.identifier ?? "USD"
+    var resolvedRegion: CarbonRegion = .globalAverage
 
     // MARK: - Derived
 
@@ -42,6 +43,16 @@ final class HabitsViewModel {
 
     var totalCostSaved: Double {
         habits.map { $0.totalCostSaved }.reduce(0, +)
+    }
+
+    var totalCompletions: Int {
+        habits.map { $0.completionDates.count }.reduce(0, +)
+    }
+
+    var drivingDistanceEquivalentText: String? {
+        guard totalCO2Saved > 0 else { return nil }
+        let distanceKm = totalCO2Saved / TransportMode.car.kgPerKm(in: resolvedRegion)
+        return DisplayFormatting.distance(distanceKm, region: resolvedRegion)
     }
 
     // MARK: - Dependencies
@@ -75,6 +86,7 @@ final class HabitsViewModel {
             let profile = try await dataStore.fetchUserProfile()
             habits = try await dataStore.fetchHabits()
             currencyCode = profile.currencyCode
+            resolvedRegion = profile.resolvedRegion
         } catch {
             errorMessage = error.localizedDescription
         }

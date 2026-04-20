@@ -16,6 +16,8 @@ struct HomeView: View {
                     // MARK: Greeting + Score Ring
                     headerSection
 
+                    impactMeaningSection
+
                     // MARK: Active Nudges
                     if !viewModel.activeNudges.isEmpty {
                         nudgesSection
@@ -129,19 +131,46 @@ struct HomeView: View {
 
             // Score pill
             HStack(spacing: 20) {
-                ScorePill(label: "Net", value: DisplayFormatting.carbon(viewModel.todaySummary.totalKgCO2), icon: "leaf.fill", tint: .green)
-                ScorePill(label: "Avoided", value: DisplayFormatting.carbon(viewModel.todaySummary.totalKgSaved), icon: "arrow.down.circle.fill", tint: .blue)
-                ScorePill(label: "Points", value: "+\(viewModel.todaySummary.pointsEarned)", icon: "star.fill", tint: .yellow)
+                ScorePill(label: "Budget", value: budgetPillValue, icon: "target", tint: .green)
+                ScorePill(
+                    label: "Money",
+                    value: DisplayFormatting.currency(
+                        viewModel.todaySummary.costSaved,
+                        currencyCode: viewModel.userProfile.currencyCode
+                    ),
+                    icon: "banknote.fill",
+                    tint: .blue
+                )
+                ScorePill(label: "Wins", value: "\(actionsToday)", icon: "checkmark.circle.fill", tint: .yellow)
             }
+        }
+    }
+
+    private var impactMeaningSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionHeader(title: "What This Means Today", icon: "text.bubble.fill", tint: .green)
+
+            VStack(alignment: .leading, spacing: 14) {
+                HomeInsightRow(icon: "target", title: impactHeadline, detail: impactDetail)
+                HomeInsightRow(icon: "banknote.fill", title: savingsHeadline, detail: savingsDetail)
+                HomeInsightRow(icon: largestCategoryIcon, title: "Where to focus next", detail: largestCategoryMessage)
+            }
+            .padding()
+            .background(Color(.secondarySystemGroupedBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
         }
     }
 
     private var nudgesSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            SectionHeader(title: "Suggested Actions", icon: "bell.badge.fill", tint: .orange)
+            SectionHeader(title: "Helpful Right Now", icon: "bell.badge.fill", tint: .orange)
+            Text("These prompts now call out timing and trip context. Schedule-linked triggering is still a follow-up integration.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
             ForEach(viewModel.activeNudges.prefix(3)) { nudge in
                 NudgeCardView(
                     nudge: nudge,
+                    region: viewModel.userProfile.resolvedRegion,
                     onComplete: { viewModel.completeNudge(nudge) },
                     onDismiss:  { viewModel.dismissNudge(nudge) }
                 )
@@ -179,6 +208,86 @@ struct HomeView: View {
         default: return "evening"
         }
     }
+
+    private var actionsToday: Int {
+        viewModel.todaySummary.habitsCompleted + viewModel.todaySummary.nudgesActedOn
+    }
+
+    private var budgetPillValue: String {
+        if viewModel.todaySummary.totalKgCO2 < 0 {
+            return "Net saving"
+        }
+
+        if viewModel.todaySummary.isUnderTarget {
+            return DisplayFormatting.carbon(viewModel.todaySummary.remainingBudgetKg)
+        }
+
+        return "Over \(DisplayFormatting.carbon(viewModel.todaySummary.totalKgCO2 - viewModel.todaySummary.targetKgCO2))"
+    }
+
+    private var impactHeadline: String {
+        if viewModel.todaySummary.totalKgCO2 < 0 {
+            return "Your lower-impact choices are currently outweighing your logged emissions."
+        }
+
+        if viewModel.todaySummary.isUnderTarget {
+            return "You are \(String(format: "%.1f", viewModel.todaySummary.remainingBudgetKg)) kg under today’s goal."
+        }
+
+        return "You are \(String(format: "%.1f", viewModel.todaySummary.totalKgCO2 - viewModel.todaySummary.targetKgCO2)) kg over today’s goal."
+    }
+
+    private var impactDetail: String {
+        var details: [String] = []
+
+        if let distanceText = savedDrivingEquivalentText {
+            details.append("That is like \(distanceText) of driving avoided")
+        }
+
+        if actionsToday > 0 {
+            details.append("\(actionsToday) lower-impact win\(actionsToday == 1 ? "" : "s") logged")
+        }
+
+        return details.isEmpty ? "Start with one trip, meal, or habit to build a daily story." : details.joined(separator: " • ")
+    }
+
+    private var savingsHeadline: String {
+        if viewModel.todaySummary.costSaved > 0 {
+            return "You have saved about \(DisplayFormatting.currency(viewModel.todaySummary.costSaved, currencyCode: viewModel.userProfile.currencyCode)) so far today."
+        }
+
+        return "Money can be a better motivator than guilt."
+    }
+
+    private var savingsDetail: String {
+        if viewModel.todaySummary.costSaved > 0 {
+            return "GreenCatalyst now foregrounds savings so cleaner choices feel practical as well as lower impact."
+        }
+
+        return "Track habits and nudges to surface cheaper choices alongside the carbon math."
+    }
+
+    private var largestCategoryIcon: String {
+        viewModel.todaySummary.byCategory.max { abs($0.kgCO2) < abs($1.kgCO2) }?.category.icon ?? "sparkles"
+    }
+
+    private var largestCategoryMessage: String {
+        guard let category = viewModel.todaySummary.byCategory.max(by: { abs($0.kgCO2) < abs($1.kgCO2) }) else {
+            return "Once you log a few actions, this will point to the category with the biggest effect."
+        }
+
+        if category.kgCO2 >= 0 {
+            return "\(category.category.rawValue) is contributing the most right now at \(String(format: "%.1f", category.kgCO2)) kg. That is the clearest place to improve next."
+        }
+
+        return "\(category.category.rawValue) is doing the most work for you so far with \(String(format: "%.1f", abs(category.kgCO2))) kg of savings."
+    }
+
+    private var savedDrivingEquivalentText: String? {
+        guard viewModel.todaySummary.totalKgSaved > 0 else { return nil }
+        let distanceKm = viewModel.todaySummary.totalKgSaved / TransportMode.car.kgPerKm(in: viewModel.userProfile.resolvedRegion)
+        return DisplayFormatting.distance(distanceKm, region: viewModel.userProfile.resolvedRegion)
+    }
 }
 
 // MARK: - ScorePill
@@ -207,6 +316,29 @@ struct ScorePill: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(label)
         .accessibilityValue(value)
+    }
+}
+
+struct HomeInsightRow: View {
+    let icon: String
+    let title: String
+    let detail: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: icon)
+                .foregroundStyle(.green)
+                .frame(width: 18)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -371,6 +503,7 @@ struct LogEntrySheet: View {
     @State private var selectedCategory: CarbonCategory = .transport
     @State private var selectedMode: TransportMode = .car
     @State private var distanceText: String = ""
+    @State private var isRoundTrip: Bool = false
     @State private var selectedFoodType: CarbonCalculator.FoodType = .vegetables
     @State private var gramsText: String = ""
     @State private var selectedEnergySource: CarbonCalculator.EnergySource = .electricity
@@ -398,7 +531,7 @@ struct LogEntrySheet: View {
                             VStack(alignment: .leading, spacing: 3) {
                                 Text("Quick Carbon Log")
                                     .font(.headline)
-                                Text("Capture a single action without leaving the home flow.")
+                                Text("Plan or capture a single action without leaving the home flow.")
                                     .font(.subheadline)
                                     .foregroundStyle(.secondary)
                             }
@@ -443,11 +576,19 @@ struct LogEntrySheet: View {
                         }
                         .pickerStyle(.navigationLink)
 
-                        LabeledContent("Distance (\(distanceUnitLabel))") {
+                        LabeledContent(transportDistanceLabel) {
                             TextField("e.g. 14.5", text: $distanceText)
                                 .keyboardType(.decimalPad)
                                 .multilineTextAlignment(.trailing)
                                 .frame(width: 90)
+                        }
+
+                        Toggle("Include return trip", isOn: $isRoundTrip)
+
+                        if isRoundTrip {
+                            Text("Enter the one-way distance and we will double it for the trip back.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                         }
 
                         Label(
@@ -574,7 +715,7 @@ struct LogEntrySheet: View {
         case .transport:
             return carbonCalculator.calculateTransport(
                 mode: selectedMode,
-                distanceKm: parsedDistanceKm ?? 0,
+                distanceKm: effectiveDistanceKm ?? 0,
                 region: resolvedRegion
             )
         case .food:
@@ -605,7 +746,7 @@ struct LogEntrySheet: View {
     private var impactDescription: String {
         switch selectedCategory {
         case .transport:
-            return "Based on \(selectedMode.rawValue.lowercased()) over \(distanceText.isEmpty ? "0" : distanceText) \(distanceUnitLabel)."
+            return "Based on a \(isRoundTrip ? "round trip" : "one-way trip") of \(effectiveDistanceDisplayText) by \(selectedMode.rawValue.lowercased()). Use this while you plan or travel."
         case .food:
             return "Approximate food estimate based on serving size and category."
         case .energy:
@@ -627,6 +768,20 @@ struct LogEntrySheet: View {
 
     private var parsedDistanceKm: Double? {
         DisplayFormatting.kilometers(from: distanceText, region: resolvedRegion)
+    }
+
+    private var effectiveDistanceKm: Double? {
+        guard let parsedDistanceKm else { return nil }
+        return isRoundTrip ? parsedDistanceKm * 2 : parsedDistanceKm
+    }
+
+    private var effectiveDistanceDisplayText: String {
+        guard let effectiveDistanceKm else { return "0 \(distanceUnitLabel)" }
+        return DisplayFormatting.distance(effectiveDistanceKm, region: resolvedRegion)
+    }
+
+    private var transportDistanceLabel: String {
+        isRoundTrip ? "One-way distance (\(distanceUnitLabel))" : "Distance (\(distanceUnitLabel))"
     }
 
     private var transportFactorPerDisplayedUnit: Double {
@@ -672,8 +827,12 @@ struct LogEntrySheet: View {
     private func save() {
         switch selectedCategory {
         case .transport:
-            guard let dist = parsedDistanceKm else { return }
-            viewModel.logTransportEntry(mode: selectedMode, distanceKm: dist)
+            guard let dist = effectiveDistanceKm else { return }
+            viewModel.logTransportEntry(
+                mode: selectedMode,
+                distanceKm: dist,
+                notes: notes.isEmpty ? transportAutoNote : notes
+            )
         case .food:
             guard let grams = Double(gramsText) else { return }
             viewModel.logFoodEntry(type: selectedFoodType, grams: grams, notes: notes.isEmpty ? nil : notes)
@@ -691,6 +850,12 @@ struct LogEntrySheet: View {
                 notes: notes.isEmpty ? nil : notes
             )
         }
+    }
+
+    private var transportAutoNote: String? {
+        guard let effectiveDistanceKm else { return nil }
+        let tripType = isRoundTrip ? "round trip" : "one-way trip"
+        return "\(selectedMode.rawValue) \(tripType) · \(DisplayFormatting.distance(effectiveDistanceKm, region: resolvedRegion))"
     }
 }
 

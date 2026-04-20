@@ -18,6 +18,8 @@ struct ImpactView: View {
                     // Hero Score Card
                     scoreCard
 
+                    meaningSection
+
                     // Bar Chart
                     weeklyChart
 
@@ -150,6 +152,21 @@ struct ImpactView: View {
 
     // MARK: - Weekly Chart
 
+    private var meaningSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionHeader(title: "What These Numbers Mean", icon: "text.bubble.fill", tint: .green)
+
+            VStack(alignment: .leading, spacing: 14) {
+                ImpactStoryRow(icon: "target", title: meaningHeadline, detail: meaningDetail)
+                ImpactStoryRow(icon: "banknote.fill", title: moneyHeadline, detail: moneyDetail)
+                ImpactStoryRow(icon: focusIcon, title: "Biggest influence", detail: focusDetail)
+            }
+            .padding()
+            .background(Color(.secondarySystemGroupedBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+        }
+    }
+
     @ViewBuilder
     private var weeklyChart: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -259,18 +276,33 @@ struct ImpactView: View {
     // MARK: - Export
 
     private var exportSection: some View {
-        ShareLink(
-            item: viewModel.exportSummaryCSV(),
-            preview: SharePreview("GreenCatalyst Carbon Report", icon: Image(systemName: "leaf.fill"))
-        ) {
-            Label("Export as CSV", systemImage: "square.and.arrow.up")
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(Color.green.opacity(0.15))
-                .foregroundStyle(.green)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+        VStack(spacing: 12) {
+            ShareLink(
+                item: viewModel.shareChallengeText(),
+                preview: SharePreview("GreenCatalyst Check-In", icon: Image(systemName: "person.2.fill"))
+            ) {
+                Label("Share Progress with Friends", systemImage: "person.2.fill")
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.blue.opacity(0.15))
+                    .foregroundStyle(.blue)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+            }
+            .accessibilityHint("Shares a short summary that can be used as a friendly challenge")
+
+            ShareLink(
+                item: viewModel.exportSummaryCSV(),
+                preview: SharePreview("GreenCatalyst Carbon Report", icon: Image(systemName: "leaf.fill"))
+            ) {
+                Label("Export as CSV", systemImage: "square.and.arrow.up")
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.green.opacity(0.15))
+                    .foregroundStyle(.green)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+            }
+            .accessibilityHint("Exports the current report as a CSV file")
         }
-        .accessibilityHint("Exports the current report as a CSV file")
     }
 
     private var targetBannerText: String {
@@ -283,6 +315,58 @@ struct ImpactView: View {
         }
 
         return "\(String(format: "%.1f", viewModel.summary.totalKgCO2 - viewModel.summary.targetKgCO2)) kg over target"
+    }
+
+    private var meaningHeadline: String {
+        if viewModel.summary.totalKgCO2 < 0 {
+            return "Your lower-impact actions are currently ahead of your emissions."
+        }
+
+        if viewModel.summary.isUnderTarget {
+            return "You are under your goal for this \(viewModel.selectedPeriod.rawValue.lowercased())."
+        }
+
+        return "You are over your goal for this \(viewModel.selectedPeriod.rawValue.lowercased())."
+    }
+
+    private var meaningDetail: String {
+        if let drivingText = viewModel.drivingDistanceEquivalentText {
+            return "Your avoided emissions equal about \(drivingText) of car travel not driven."
+        }
+
+        return "As you complete habits and nudges, this section will translate carbon into everyday impact."
+    }
+
+    private var moneyHeadline: String {
+        if viewModel.summary.costSaved > 0 {
+            return "You have saved about \(DisplayFormatting.currency(viewModel.summary.costSaved, currencyCode: viewModel.summary.region.currencyCode))."
+        }
+
+        return "Money saved is tracked alongside carbon."
+    }
+
+    private var moneyDetail: String {
+        if viewModel.summary.costSaved > 0 {
+            return "That makes it easier to compare what is good for the climate with what is good for your budget."
+        }
+
+        return "Habits and nudges are the fastest way to build visible savings."
+    }
+
+    private var focusIcon: String {
+        viewModel.largestCategory?.category.icon ?? "sparkles"
+    }
+
+    private var focusDetail: String {
+        guard let largestCategory = viewModel.largestCategory else {
+            return "Log a few actions first and this will show the category with the biggest effect."
+        }
+
+        if largestCategory.kgCO2 >= 0 {
+            return "\(largestCategory.category.rawValue) is the biggest source of impact at \(String(format: "%.1f", largestCategory.kgCO2)) kg for this period."
+        }
+
+        return "\(largestCategory.category.rawValue) is your strongest source of savings at \(String(format: "%.1f", abs(largestCategory.kgCO2))) kg avoided."
     }
 }
 
@@ -382,6 +466,29 @@ struct ComparisonRow: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(label)
         .accessibilityValue(String(format: "%+.1f %@", delta, unit))
+    }
+}
+
+struct ImpactStoryRow: View {
+    let icon: String
+    let title: String
+    let detail: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: icon)
+                .foregroundStyle(.green)
+                .frame(width: 18)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .accessibilityElement(children: .combine)
     }
 }
 

@@ -8,6 +8,7 @@ import SwiftUI
 struct NudgeCardView: View {
 
     let nudge: Nudge
+    let region: CarbonRegion
     let onComplete: () -> Void
     let onDismiss: () -> Void
 
@@ -80,7 +81,13 @@ struct NudgeCardView: View {
 
                 Spacer()
 
-                priorityBadge
+                VStack(alignment: .trailing, spacing: 6) {
+                    if let stageLabel = presentation.stageLabel {
+                        badge(text: stageLabel, tint: .orange)
+                    }
+
+                    priorityBadge
+                }
             }
 
             Text(nudge.nudgeDescription)
@@ -88,11 +95,25 @@ struct NudgeCardView: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(3)
 
+            if !presentation.detailLabels.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(presentation.detailLabels, id: \.self) { label in
+                            badge(text: label, tint: .gray)
+                        }
+                    }
+                }
+            }
+
             // Savings pills
             HStack(spacing: 8) {
                 SavingPill(icon: "leaf.fill", value: String(format: "%.1f kg CO₂", nudge.co2Saving), tint: .green)
                 if nudge.costSaving > 0 {
-                    SavingPill(icon: "banknote.fill", value: DisplayFormatting.currency(nudge.costSaving), tint: .blue)
+                    SavingPill(
+                        icon: "banknote.fill",
+                        value: DisplayFormatting.currency(nudge.costSaving, currencyCode: region.currencyCode),
+                        tint: .blue
+                    )
                 }
                 Spacer()
 
@@ -131,12 +152,26 @@ struct NudgeCardView: View {
 
     // MARK: - Helpers
 
+    private var presentation: NudgePresentation {
+        NudgePresentation(nudge: nudge, region: region)
+    }
+
     private func actionLabel(icon: String, text: String, color: Color) -> some View {
         VStack(spacing: 4) {
             Image(systemName: icon).font(.title2).foregroundStyle(color)
             Text(text).font(.caption.bold()).foregroundStyle(color)
         }
         .frame(width: 60)
+    }
+
+    private func badge(text: String, tint: Color) -> some View {
+        Text(text)
+            .font(.system(size: 10, weight: .semibold))
+            .foregroundStyle(tint == .gray ? .secondary : tint)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background((tint == .gray ? Color(.tertiarySystemFill) : tint.opacity(0.12)))
+            .clipShape(Capsule())
     }
 
     private var categoryGradient: LinearGradient {
@@ -148,13 +183,7 @@ struct NudgeCardView: View {
         Group {
             switch nudge.priority {
             case .high:
-                Text("HIGH")
-                    .font(.system(size: 9, weight: .heavy))
-                    .foregroundStyle(.red)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 3)
-                    .background(Color.red.opacity(0.12))
-                    .clipShape(Capsule())
+                badge(text: "High impact", tint: .red)
             case .medium:
                 EmptyView()
             case .low:
@@ -204,11 +233,17 @@ private extension NudgeCardView {
         var parts = [nudge.nudgeDescription, "Saves \(String(format: "%.1f", nudge.co2Saving)) kilograms of carbon dioxide equivalent"]
 
         if nudge.costSaving > 0 {
-            parts.append("\(DisplayFormatting.currency(nudge.costSaving)) saved")
+            parts.append("\(DisplayFormatting.currency(nudge.costSaving, currencyCode: region.currencyCode)) saved")
         }
 
         if let remaining = nudge.timeRemainingText {
             parts.append(remaining)
+        }
+
+        parts.append(contentsOf: presentation.detailLabels)
+
+        if let stageLabel = presentation.stageLabel {
+            parts.append(stageLabel)
         }
 
         if nudge.priority == .high {
@@ -219,10 +254,49 @@ private extension NudgeCardView {
     }
 }
 
+private struct NudgePresentation {
+    let stageLabel: String?
+    let detailLabels: [String]
+
+    init(nudge: Nudge, region: CarbonRegion) {
+        let title = nudge.title.lowercased()
+
+        if title.contains("work trip") {
+            stageLabel = "Before you leave"
+            detailLabels = [
+                "Commute",
+                DisplayFormatting.distance(22.5, region: region),
+                "Round trip",
+            ]
+        } else if title.contains("lunch") {
+            stageLabel = "Before you order"
+            detailLabels = [
+                "Lunch window",
+                "Meal swap",
+            ]
+        } else if title.contains("desk setup") {
+            stageLabel = "Helpful right now"
+            detailLabels = [
+                "While working",
+                "In progress",
+            ]
+        } else if title.contains("resale") || title.contains("buying new") {
+            stageLabel = "Before you buy"
+            detailLabels = [
+                "Weekend errand",
+                "Purchase check",
+            ]
+        } else {
+            stageLabel = nil
+            detailLabels = []
+        }
+    }
+}
+
 #Preview {
     VStack(spacing: 16) {
         ForEach(Nudge.sampleNudges.prefix(2)) { nudge in
-            NudgeCardView(nudge: nudge, onComplete: {}, onDismiss: {})
+            NudgeCardView(nudge: nudge, region: .northAmerica, onComplete: {}, onDismiss: {})
         }
     }
     .padding()

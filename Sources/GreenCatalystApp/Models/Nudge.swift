@@ -91,6 +91,100 @@ final class Nudge: Identifiable {
     func dismiss() {
         isDismissed = true
     }
+
+    @discardableResult
+    func refreshForVersion102IfNeeded() -> Bool {
+        let normalizedTitle = title.lowercased()
+
+        switch normalizedTitle {
+        case "choose cycling for a short trip", "try biking or transit for your work trip":
+            return applyVersion102Values(
+                title: "Try biking or transit for your work trip",
+                description: "For a 14 mi round trip, swapping the car for biking or public transport can avoid about 2.4 kg CO₂ and save around $3.50. Best before you leave.",
+                co2Saving: 2.4,
+                costSaving: 3.50,
+                category: .transport,
+                priority: .high,
+                icon: "bicycle",
+                expiresAt: Calendar.current.date(byAdding: .hour, value: 8, to: createdAt),
+                deepLinkAction: "log-transport"
+            )
+        case "switch to a plant-based lunch", "pick the lighter lunch today":
+            return applyVersion102Values(
+                title: "Pick the lighter lunch today",
+                description: "Switching one higher-impact lunch to a plant-based option can avoid about 1.8 kg CO₂ and save around $2.00. Helpful before you order.",
+                co2Saving: 1.8,
+                costSaving: 2.00,
+                category: .food,
+                priority: .medium,
+                icon: "leaf.fill",
+                expiresAt: Calendar.current.date(byAdding: .hour, value: 4, to: createdAt),
+                deepLinkAction: nil
+            )
+        case "switch off unused electronics", "shut down your desk setup when you pause":
+            return applyVersion102Values(
+                title: "Shut down your desk setup when you pause",
+                description: "Turning off screens and chargers during breaks trims wasted energy while the task is still in progress, avoiding roughly 0.6 kg CO₂.",
+                co2Saving: 0.6,
+                costSaving: 0.45,
+                category: .energy,
+                priority: .low,
+                icon: "bolt.slash.fill",
+                expiresAt: nil,
+                deepLinkAction: nil
+            )
+        case "shop second-hand this weekend", "check resale before buying new":
+            return applyVersion102Values(
+                title: "Check resale before buying new",
+                description: "If this weekend errand turns into a purchase, checking second-hand first can avoid several kilograms of CO₂ and save around $25.",
+                co2Saving: 3.0,
+                costSaving: 25.00,
+                category: .shopping,
+                priority: .low,
+                icon: "arrow.2.circlepath",
+                expiresAt: Calendar.current.date(byAdding: .day, value: 2, to: createdAt),
+                deepLinkAction: nil
+            )
+        default:
+            return false
+        }
+    }
+
+    private func applyVersion102Values(
+        title: String,
+        description: String,
+        co2Saving: Double,
+        costSaving: Double,
+        category: CarbonCategory,
+        priority: NudgePriority,
+        icon: String,
+        expiresAt: Date?,
+        deepLinkAction: String?
+    ) -> Bool {
+        let didChange =
+            self.title != title ||
+            self.nudgeDescription != description ||
+            self.co2Saving != co2Saving ||
+            self.costSaving != costSaving ||
+            self.category != category ||
+            self.priority != priority ||
+            self.icon != icon ||
+            self.expiresAt != expiresAt ||
+            self.deepLinkAction != deepLinkAction
+
+        guard didChange else { return false }
+
+        self.title = title
+        self.nudgeDescription = description
+        self.co2Saving = co2Saving
+        self.costSaving = costSaving
+        self.category = category
+        self.priority = priority
+        self.icon = icon
+        self.expiresAt = expiresAt
+        self.deepLinkAction = deepLinkAction
+        return true
+    }
 }
 
 // MARK: - Equatable
@@ -108,8 +202,8 @@ extension Nudge {
         let now = Date.now
         return [
             Nudge(
-                title: "Choose cycling for a short trip",
-                description: "If a commute or errand is bike-friendly today, choosing cycling can avoid about 2.4 kg CO₂ compared with driving.",
+                title: "Try biking or transit for your work trip",
+                description: "For a 14 mi round trip, swapping the car for biking or public transport can avoid about 2.4 kg CO₂ and save around $3.50. Best before you leave.",
                 co2Saving: 2.4,
                 costSaving: 3.50,
                 category: .transport,
@@ -119,8 +213,8 @@ extension Nudge {
                 deepLinkAction: "log-transport"
             ),
             Nudge(
-                title: "Switch to a plant-based lunch",
-                description: "A plant-based lunch can avoid about 1.8 kg CO₂ compared with a higher-impact meal.",
+                title: "Pick the lighter lunch today",
+                description: "Switching one higher-impact lunch to a plant-based option can avoid about 1.8 kg CO₂ and save around $2.00. Helpful before you order.",
                 co2Saving: 1.8,
                 costSaving: 2.00,
                 category: .food,
@@ -129,8 +223,8 @@ extension Nudge {
                 expiresAt: Calendar.current.date(byAdding: .hour, value: 4, to: now)
             ),
             Nudge(
-                title: "Switch off unused electronics",
-                description: "Turning off devices you are not using is a simple way to trim energy waste and avoid roughly 0.6 kg CO₂.",
+                title: "Shut down your desk setup when you pause",
+                description: "Turning off screens and chargers during breaks trims wasted energy while the task is still in progress, avoiding roughly 0.6 kg CO₂.",
                 co2Saving: 0.6,
                 costSaving: 0.45,
                 category: .energy,
@@ -138,8 +232,8 @@ extension Nudge {
                 icon: "bolt.slash.fill"
             ),
             Nudge(
-                title: "Shop second-hand this weekend",
-                description: "Checking second-hand options before buying new can avoid several kilograms of CO₂ for some purchases.",
+                title: "Check resale before buying new",
+                description: "If this weekend errand turns into a purchase, checking second-hand first can avoid several kilograms of CO₂ and save around $25.",
                 co2Saving: 3.0,
                 costSaving: 25.00,
                 category: .shopping,

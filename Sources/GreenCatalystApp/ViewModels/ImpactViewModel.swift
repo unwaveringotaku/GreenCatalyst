@@ -132,6 +132,27 @@ final class ImpactViewModel {
         }
     }
 
+    var drivingDistanceEquivalentText: String? {
+        guard summary.totalKgSaved > 0 else { return nil }
+        let distanceKm = summary.totalKgSaved / TransportMode.car.kgPerKm(in: summary.region)
+        return DisplayFormatting.distance(distanceKm, region: summary.region)
+    }
+
+    var largestCategory: CategoryBreakdown? {
+        summary.byCategory.max(by: { abs($0.kgCO2) < abs($1.kgCO2) })
+    }
+
+    func shareChallengeText() -> String {
+        let periodLabel = selectedPeriod.rawValue.lowercased()
+        let moneyText = DisplayFormatting.currency(summary.costSaved, currencyCode: summary.region.currencyCode)
+
+        if summary.totalKgSaved > 0 {
+            return "GreenCatalyst check-in: I avoided \(String(format: "%.1f", summary.totalKgSaved)) kg CO₂ and saved \(moneyText) \(periodLabel). Can you beat that?"
+        }
+
+        return "GreenCatalyst check-in: I am tracking my footprint \(periodLabel) and building lower-impact habits. Join me?"
+    }
+
     private func previousRange(for period: SummaryPeriod) -> (start: Date, end: Date) {
         let calendar = Calendar.current
         let now = Date.now

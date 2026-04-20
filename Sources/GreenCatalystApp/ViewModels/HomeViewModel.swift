@@ -104,7 +104,7 @@ final class HomeViewModel {
         saveAndReload(entry)
     }
 
-    func logTransportEntry(mode: TransportMode, distanceKm: Double) {
+    func logTransportEntry(mode: TransportMode, distanceKm: Double, notes: String? = nil) {
         let kg = carbonCalculator.calculateTransport(
             mode: mode,
             distanceKm: distanceKm,
@@ -114,6 +114,7 @@ final class HomeViewModel {
             category: .transport,
             kgCO2: kg,
             source: .manual,
+            notes: notes,
             transportMode: mode,
             distanceKm: distanceKm
         )

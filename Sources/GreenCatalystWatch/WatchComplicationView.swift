@@ -23,8 +23,6 @@ struct WatchComplicationView: View {
             graphicCorner
         case .modularSmall:
             modularSmall
-        default:
-            graphicCircular
         }
     }
 

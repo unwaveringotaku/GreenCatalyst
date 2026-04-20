@@ -377,12 +377,20 @@ final class DataStore {
                 guard let expiry = nudge.expiresAt else { return true }
                 return expiry > now
             }
+            var didRefreshExistingNudges = false
+            for nudge in nudges where nudge.refreshForVersion102IfNeeded() {
+                didRefreshExistingNudges = true
+            }
             // Seed sample nudges if empty
             if nudges.isEmpty {
                 for nudge in Nudge.sampleNudges {
                     context.insert(nudge)
                     nudges.append(nudge)
                 }
+                didRefreshExistingNudges = true
+            }
+
+            if didRefreshExistingNudges {
                 try context.save()
             }
             return nudges

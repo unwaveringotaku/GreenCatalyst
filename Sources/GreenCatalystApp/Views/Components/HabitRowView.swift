@@ -71,14 +71,21 @@ struct HabitRowView: View {
                 }
 
                 HStack(spacing: 6) {
-                    Label(String(format: "%.1f kg CO₂", habit.co2PerAction), systemImage: "leaf.fill")
+                    Label(String(format: "%.1f kg CO₂ each", habit.co2PerAction), systemImage: "leaf.fill")
                         .font(.caption2)
                         .foregroundStyle(.green)
                     if habit.costPerAction > 0 {
-                        Label(DisplayFormatting.currency(habit.costPerAction), systemImage: "banknote.fill")
+                        Label("\(DisplayFormatting.currency(habit.costPerAction)) each", systemImage: "banknote.fill")
                             .font(.caption2)
                             .foregroundStyle(.blue)
                     }
+                }
+
+                if habit.totalCO2Saved > 0 || habit.totalCostSaved > 0 {
+                    Text(lifetimeImpactText)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
                 }
             }
 
@@ -173,6 +180,20 @@ struct HabitRowView: View {
         }
 
         return parts.joined(separator: ", ")
+    }
+
+    private var lifetimeImpactText: String {
+        var parts: [String] = []
+
+        if habit.totalCO2Saved > 0 {
+            parts.append(String(format: "%.1f kg CO₂ saved so far", habit.totalCO2Saved))
+        }
+
+        if habit.totalCostSaved > 0 {
+            parts.append("\(DisplayFormatting.currency(habit.totalCostSaved)) saved")
+        }
+
+        return parts.joined(separator: " • ")
     }
 }
 

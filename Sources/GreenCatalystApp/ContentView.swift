@@ -131,26 +131,26 @@ struct OnboardingCarouselView: View {
     private let pages: [OnboardingPage] = [
         OnboardingPage(
             icon: "leaf.circle.fill",
-            title: "Track Your Impact",
-            body: "Log transport, food, energy, and shopping with simple calculators and keep a running view of your daily footprint.",
+            title: "See What Choices Mean",
+            body: "Track transport, food, energy, and shopping with clear calculators, then translate the totals into habits, trips, and money saved.",
             tint: .green
         ),
         OnboardingPage(
             icon: "bell.badge.fill",
-            title: "Suggested Actions",
-            body: "Get practical low-carbon prompts based on common habits. In this build, suggestions are guide cards rather than live weather or utility analysis.",
+            title: "Plan Around Your Day",
+            body: "Get prompts for commutes, meals, and purchases that are easier to act on while the task is still in front of you.",
             tint: .orange
         ),
         OnboardingPage(
             icon: "flame.fill",
-            title: "Build Streaks",
-            body: "Form sustainable habits and build daily streaks to make green living effortless.",
+            title: "Build Wins You Can Feel",
+            body: "Use habits, streaks, and savings to make progress more concrete than a single carbon number.",
             tint: .red
         ),
         OnboardingPage(
-            icon: "heart.fill",
-            title: "HealthKit + Shortcuts",
-            body: "Import workout-based trips from HealthKit and use app shortcuts for quick voice logging.",
+            icon: "person.2.fill",
+            title: "Share Progress Easily",
+            body: "Export or share your wins with friends while the product grows toward deeper schedule-aware and social features.",
             tint: .pink
         ),
     ]

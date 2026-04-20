@@ -16,6 +16,8 @@ struct HabitsView: View {
                     // Stats header
                     statsHeader
 
+                    impactStoryCard
+
                     // Category filter
                     categoryFilter
 
@@ -117,6 +119,23 @@ struct HabitsView: View {
         }
     }
 
+    private var impactStoryCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionHeader(title: "Your Habit Impact", icon: "sparkles", tint: .green)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text(habitImpactHeadline)
+                    .font(.headline)
+                Text(habitImpactDetail)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            .padding()
+            .background(Color(.secondarySystemGroupedBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+        }
+    }
+
     // MARK: - Habits Grid
 
     @ViewBuilder
@@ -135,6 +154,26 @@ struct HabitsView: View {
                 }
             }
         }
+    }
+
+    private var habitImpactHeadline: String {
+        guard viewModel.totalCompletions > 0 else {
+            return "Your habits are ready. The impact story starts after the first completion."
+        }
+
+        if let drivingText = viewModel.drivingDistanceEquivalentText {
+            return "\(viewModel.totalCompletions) habit wins have avoided about \(drivingText) of driving."
+        }
+
+        return "\(viewModel.totalCompletions) habit wins are already building a measurable impact."
+    }
+
+    private var habitImpactDetail: String {
+        guard viewModel.totalCompletions > 0 else {
+            return "Use this tab to turn good intentions into repeatable actions with streaks, reminders, and clearer savings."
+        }
+
+        return "So far, your habits have saved \(DisplayFormatting.currency(viewModel.totalCostSaved, currencyCode: viewModel.currencyCode)) and kept \(String(format: "%.1f", viewModel.totalCO2Saved)) kg CO₂ out of your routine."
     }
 }
 
