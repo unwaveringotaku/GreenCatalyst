@@ -36,6 +36,7 @@ struct HabitsView: View {
                             .font(.title2)
                             .foregroundStyle(.green)
                     }
+                    .accessibilityLabel("Add habit")
                 }
             }
             .sheet(isPresented: $showAddSheet, onDismiss: { Task { await viewModel.loadHabits() } }) {
@@ -75,15 +76,16 @@ struct HabitsView: View {
             )
             Divider().frame(height: 50)
             StatCell(
-                value: String(format: "£%.2f", viewModel.totalCostSaved),
-                label: "Cost Saved",
-                icon: "sterlingsign.circle.fill",
+                value: DisplayFormatting.currency(viewModel.totalCostSaved, currencyCode: viewModel.currencyCode),
+                label: "Money Saved",
+                icon: "banknote.fill",
                 tint: .blue
             )
         }
         .padding()
         .background(Color(.secondarySystemGroupedBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
+        .accessibilityElement(children: .contain)
     }
 
     // MARK: - Category Filter
@@ -151,6 +153,9 @@ struct StatCell: View {
             Text(label).font(.caption2).foregroundStyle(.secondary).multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(label)
+        .accessibilityValue(value)
     }
 }
 
@@ -175,6 +180,9 @@ struct FilterChip: View {
             .foregroundStyle(isSelected ? .white : .primary)
             .clipShape(Capsule())
         }
+        .accessibilityLabel(label)
+        .accessibilityValue(isSelected ? "Selected" : "Not selected")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 
@@ -202,6 +210,7 @@ struct EmptyHabitsView: View {
         .frame(maxWidth: .infinity)
         .background(Color(.secondarySystemGroupedBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -256,26 +265,34 @@ struct AddHabitSheet: View {
                             .frame(width: 80)
                     }
                     HStack {
-                        Text("Cost saved (£)")
+                        Text("Money saved")
                         Spacer()
                         TextField("0.0", text: $costPerAction)
                             .keyboardType(.decimalPad)
                             .multilineTextAlignment(.trailing)
                             .frame(width: 80)
                     }
+                    .accessibilityLabel("Money saved per action in \(viewModel.currencyCode)")
                 }
 
                 Section("Icon") {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 12) {
                             ForEach(availableIcons, id: \.self) { sf in
-                                Image(systemName: sf)
-                                    .font(.title2)
-                                    .foregroundStyle(icon == sf ? .white : .primary)
-                                    .padding(10)
-                                    .background(icon == sf ? Color.green : Color(.tertiarySystemFill))
-                                    .clipShape(Circle())
-                                    .onTapGesture { icon = sf }
+                                Button {
+                                    icon = sf
+                                } label: {
+                                    Image(systemName: sf)
+                                        .font(.title2)
+                                        .foregroundStyle(icon == sf ? .white : .primary)
+                                        .padding(10)
+                                        .background(icon == sf ? Color.green : Color(.tertiarySystemFill))
+                                        .clipShape(Circle())
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel(sf)
+                                .accessibilityValue(icon == sf ? "Selected" : "Not selected")
+                                .accessibilityAddTraits(icon == sf ? .isSelected : [])
                             }
                         }
                         .padding(.vertical, 4)
@@ -342,6 +359,10 @@ struct EditHabitSheet: View {
                     LabeledContent("Category", value: habit.category.rawValue)
                     LabeledContent("Streak", value: "\(habit.streakCount) days")
                     LabeledContent("CO₂ saved total", value: String(format: "%.1f kg", habit.totalCO2Saved))
+                    LabeledContent(
+                        "Money saved total",
+                        value: DisplayFormatting.currency(habit.totalCostSaved, currencyCode: viewModel.currencyCode)
+                    )
                 }
 
                 Section("Reminder") {

@@ -42,6 +42,9 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
     func checkAuthorizationStatus() async {
         let settings = await center.notificationSettings()
         isAuthorized = (settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional)
+        if isAuthorized {
+            registerCategories()
+        }
     }
 
     // MARK: - Categories & Actions

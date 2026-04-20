@@ -14,6 +14,7 @@ final class ImpactViewModel {
     var summary: ImpactSummary = .empty()
     var historicalEntries: [CarbonEntry] = []
     var weeklyTotals: [DailyTotal] = []
+    var dailyTargetKg: Double = 8.0
     var isLoading: Bool = false
     var errorMessage: String? = nil
 
@@ -54,13 +55,29 @@ final class ImpactViewModel {
             let entries = try await dataStore.fetchEntries(for: selectedPeriod)
             let completedNudges = try await dataStore.fetchCompletedNudges(for: selectedPeriod)
             let habitStats = try await dataStore.fetchHabitCompletionStats(for: selectedPeriod)
+            let previousRange = previousRange(for: selectedPeriod)
+            let previousEntries = try await dataStore.fetchEntries(from: previousRange.start, to: previousRange.end)
+            let previousCompletedNudges = try await dataStore.fetchCompletedNudges(from: previousRange.start, to: previousRange.end)
+            let previousHabitStats = try await dataStore.fetchHabitCompletionStats(from: previousRange.start, to: previousRange.end)
+            let previousSummary = carbonCalculator.buildSummary(
+                entries: previousEntries,
+                completedNudges: previousCompletedNudges,
+                habitStats: previousHabitStats,
+                period: selectedPeriod,
+                target: profile.targetKgPerDay,
+                region: profile.resolvedRegion
+            )
+
             historicalEntries = entries
+            dailyTargetKg = profile.targetKgPerDay
             summary = carbonCalculator.buildSummary(
                 entries: entries,
                 completedNudges: completedNudges,
                 habitStats: habitStats,
                 period: selectedPeriod,
-                target: profile.targetKgPerDay
+                target: profile.targetKgPerDay,
+                region: profile.resolvedRegion,
+                vsLastPeriodDelta: entries.reduce(0.0) { $0 + $1.kgCO2 } - previousSummary.totalKgCO2
             )
             weeklyTotals = buildWeeklyTotals(from: entries)
         } catch {
@@ -84,12 +101,13 @@ final class ImpactViewModel {
     // MARK: - Export
 
     func exportSummaryCSV() -> String {
-        var csv = "Date,Category,kg CO2,Source,Notes\n"
+        var csv = "Date,Category,Impact,kg CO2e,Source,Notes\n"
         let formatter = ISO8601DateFormatter()
         for entry in historicalEntries {
             let row = [
                 formatter.string(from: entry.date),
                 entry.category.rawValue,
+                entry.isSavingEntry ? "Saved" : "Emitted",
                 String(format: "%.3f", entry.kgCO2),
                 entry.source.rawValue,
                 entry.notes ?? "",
@@ -97,6 +115,49 @@ final class ImpactViewModel {
             csv += row + "\n"
         }
         return csv
+    }
+
+    var comparisonLabel: String {
+        switch selectedPeriod {
+        case .today:
+            return "vs yesterday"
+        case .week:
+            return "vs previous 7 days"
+        case .month:
+            return "vs previous month"
+        case .year:
+            return "vs previous year"
+        case .allTime:
+            return "vs previous period"
+        }
+    }
+
+    private func previousRange(for period: SummaryPeriod) -> (start: Date, end: Date) {
+        let calendar = Calendar.current
+        let now = Date.now
+
+        switch period {
+        case .today:
+            let end = calendar.startOfDay(for: now)
+            let start = calendar.date(byAdding: .day, value: -1, to: end)!
+            return (start, end)
+        case .week:
+            let end = calendar.date(byAdding: .weekOfYear, value: -1, to: now)!
+            let start = calendar.date(byAdding: .weekOfYear, value: -1, to: end)!
+            return (start, end)
+        case .month:
+            let end = calendar.date(byAdding: .month, value: -1, to: now)!
+            let start = calendar.date(byAdding: .month, value: -1, to: end)!
+            return (start, end)
+        case .year:
+            let end = calendar.date(byAdding: .year, value: -1, to: now)!
+            let start = calendar.date(byAdding: .year, value: -1, to: end)!
+            return (start, end)
+        case .allTime:
+            let end = calendar.date(byAdding: .year, value: -10, to: now)!
+            let start = calendar.date(byAdding: .year, value: -20, to: now)!
+            return (start, end)
+        }
     }
 }
 

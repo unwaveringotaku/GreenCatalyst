@@ -64,13 +64,18 @@ struct ActivityRingView: View {
         .frame(width: size, height: size)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityValue(accessibilityValue)
+        .accessibilityHint("Shows progress against your carbon target")
     }
 
     private var accessibilityLabel: String {
-        "Carbon ring"
+        "Net carbon footprint"
     }
     private var accessibilityValue: String {
-        let pct = Int(progress * 100)
+        if kgCO2 < 0 {
+            return "\(String(format: "%.1f", abs(kgCO2))) kilograms below zero. Logged savings currently outweigh emissions."
+        }
+
+        let pct = max(0, Int(progress * 100))
         return "\(String(format: "%.1f", kgCO2)) kg CO₂ of \(String(format: "%.0f", target)) kg target, \(pct)%"
     }
 }

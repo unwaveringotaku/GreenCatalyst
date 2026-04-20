@@ -46,6 +46,9 @@ struct ImpactView: View {
             .onReceive(NotificationCenter.default.publisher(for: .habitDataDidChange)) { _ in
                 Task { await viewModel.loadData() }
             }
+            .onReceive(NotificationCenter.default.publisher(for: .carbonDataDidChange)) { _ in
+                Task { await viewModel.loadData() }
+            }
             .onChange(of: viewModel.selectedPeriod) { _, _ in viewModel.onPeriodChanged() }
             .alert("Error", isPresented: .constant(viewModel.errorMessage != nil)) {
                 Button("OK") { viewModel.errorMessage = nil }
@@ -65,6 +68,7 @@ struct ImpactView: View {
         }
         .pickerStyle(.segmented)
         .padding(.top, 4)
+        .accessibilityHint("Changes the reporting period")
     }
 
     // MARK: - Score Card
@@ -83,7 +87,7 @@ struct ImpactView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(String(format: "%.1f kg", viewModel.summary.totalKgCO2))
                             .font(.title.bold())
-                        Text("CO₂ · \(viewModel.selectedPeriod.rawValue.lowercased())")
+                        Text("Net CO₂ · \(viewModel.selectedPeriod.rawValue.lowercased())")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
@@ -92,13 +96,21 @@ struct ImpactView: View {
 
                     HStack(spacing: 12) {
                         MetricBadge(
-                            label: "Saved",
+                            label: "Gross",
+                            value: String(format: "%.1f kg", viewModel.summary.grossEmissionsKg),
+                            tint: .orange
+                        )
+                        MetricBadge(
+                            label: "Avoided",
                             value: String(format: "%.1f kg", viewModel.summary.totalKgSaved),
                             tint: .green
                         )
                         MetricBadge(
-                            label: "£ Saved",
-                            value: String(format: "£%.2f", viewModel.summary.costSaved),
+                            label: "Money",
+                            value: DisplayFormatting.currency(
+                                viewModel.summary.costSaved,
+                                currencyCode: viewModel.summary.region.currencyCode
+                            ),
                             tint: .blue
                         )
                     }
@@ -121,9 +133,7 @@ struct ImpactView: View {
             // Under/Over target banner
             HStack {
                 Image(systemName: viewModel.summary.isUnderTarget ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
-                Text(viewModel.summary.isUnderTarget
-                     ? "Under your \(String(format: "%.0f", viewModel.summary.targetKgCO2)) kg target 🎉"
-                     : "\(String(format: "%.1f", viewModel.summary.totalKgCO2 - viewModel.summary.targetKgCO2)) kg over target")
+                Text(targetBannerText)
                     .font(.subheadline.bold())
                 Spacer()
             }
@@ -135,6 +145,7 @@ struct ImpactView: View {
         .padding()
         .background(Color(.secondarySystemGroupedBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
+        .accessibilityElement(children: .contain)
     }
 
     // MARK: - Weekly Chart
@@ -164,7 +175,7 @@ struct ImpactView: View {
                         )
                     )
                     .cornerRadius(6)
-                    RuleMark(y: .value("Target", 8.0))
+                    RuleMark(y: .value("Target", viewModel.dailyTargetKg))
                         .foregroundStyle(.orange.opacity(0.6))
                         .lineStyle(StrokeStyle(lineWidth: 1, dash: [4]))
                         .annotation(position: .top, alignment: .leading) {
@@ -180,6 +191,9 @@ struct ImpactView: View {
                         AxisGridLine()
                     }
                 }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Seven day emissions trend")
+                .accessibilityValue(weeklyChartSummary)
             }
         }
         .padding()
@@ -191,7 +205,7 @@ struct ImpactView: View {
 
     private var categoryBreakdown: some View {
         VStack(alignment: .leading, spacing: 12) {
-            SectionHeader(title: "By Category", icon: "chart.pie.fill", tint: .purple)
+            SectionHeader(title: "Emissions by Category", icon: "chart.pie.fill", tint: .purple)
 
             if viewModel.summary.byCategory.isEmpty {
                 Text("Log entries to see your category breakdown.")
@@ -232,13 +246,8 @@ struct ImpactView: View {
             SectionHeader(title: "How you compare", icon: "person.2.fill", tint: .indigo)
 
             ComparisonRow(
-                label: "vs last \(viewModel.selectedPeriod.rawValue.lowercased())",
+                label: viewModel.comparisonLabel,
                 delta: viewModel.summary.vsLastPeriodDelta,
-                unit: "kg CO₂"
-            )
-            ComparisonRow(
-                label: "vs national average",
-                delta: viewModel.summary.vsNationalAverageDelta,
                 unit: "kg CO₂"
             )
         }
@@ -261,6 +270,19 @@ struct ImpactView: View {
                 .foregroundStyle(.green)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
         }
+        .accessibilityHint("Exports the current report as a CSV file")
+    }
+
+    private var targetBannerText: String {
+        if viewModel.summary.totalKgCO2 < 0 {
+            return "Logged savings currently outweigh emissions for this period."
+        }
+
+        if viewModel.summary.isUnderTarget {
+            return "Under your \(String(format: "%.0f", viewModel.summary.targetKgCO2)) kg target with \(String(format: "%.1f", viewModel.summary.remainingBudgetKg)) kg remaining"
+        }
+
+        return "\(String(format: "%.1f", viewModel.summary.totalKgCO2 - viewModel.summary.targetKgCO2)) kg over target"
     }
 }
 
@@ -276,6 +298,9 @@ struct MetricBadge: View {
             Text(value).font(.subheadline.bold()).foregroundStyle(tint)
             Text(label).font(.caption2).foregroundStyle(.secondary)
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(label)
+        .accessibilityValue(value)
     }
 }
 
@@ -307,6 +332,11 @@ struct CategoryBreakdownRow: View {
                 .frame(width: 60, alignment: .trailing)
         }
         .padding(.vertical, 4)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(breakdown.category.rawValue)
+        .accessibilityValue(
+            "\(String(format: "%.1f", breakdown.kgCO2)) kilograms, \(String(format: "%.0f", breakdown.percentOfTotal * 100)) percent of total"
+        )
     }
 }
 
@@ -326,6 +356,7 @@ struct EquivalencyCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.green.opacity(0.08))
         .clipShape(RoundedRectangle(cornerRadius: 10))
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -348,6 +379,21 @@ struct ComparisonRow: View {
             .foregroundStyle(isImprovement ? .green : .orange)
         }
         .padding(.vertical, 4)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(label)
+        .accessibilityValue(String(format: "%+.1f %@", delta, unit))
+    }
+}
+
+private extension ImpactView {
+    var weeklyChartSummary: String {
+        guard !viewModel.weeklyTotals.isEmpty else {
+            return "No data yet"
+        }
+
+        return viewModel.weeklyTotals
+            .map { "\($0.dayLabel) \(String(format: "%.1f", $0.kgCO2)) kilograms" }
+            .joined(separator: ", ")
     }
 }
 

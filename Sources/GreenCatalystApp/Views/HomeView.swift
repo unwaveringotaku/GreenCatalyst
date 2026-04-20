@@ -7,7 +7,6 @@ struct HomeView: View {
     @State private var viewModel = HomeViewModel()
     @State private var showLogSheet = false
     @State private var showLevelInfo = false
-    @State private var selectedCategory: CarbonCategory = .transport
 
     var body: some View {
         NavigationStack {
@@ -44,12 +43,16 @@ struct HomeView: View {
                             .font(.title2)
                             .foregroundStyle(.green)
                     }
+                    .accessibilityLabel("Add entry")
+                    .accessibilityHint("Opens the guided carbon log")
                 }
                 ToolbarItem(placement: .topBarLeading) {
                     Button(action: { viewModel.syncHealthKitData() }) {
                         Image(systemName: "heart.circle")
                             .foregroundStyle(.red)
                     }
+                    .accessibilityLabel("Import HealthKit trips")
+                    .accessibilityHint("Imports estimated trips from workout data")
                 }
             }
             .sheet(isPresented: $showLogSheet) {
@@ -73,6 +76,17 @@ struct HomeView: View {
             .task { viewModel.onAppear() }
             .onReceive(NotificationCenter.default.publisher(for: .habitDataDidChange)) { _ in
                 Task { await viewModel.loadData() }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .carbonDataDidChange)) { _ in
+                Task { await viewModel.loadData() }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .nudgeCompleted)) { notification in
+                guard let idString = notification.object as? String else { return }
+                viewModel.handleCompletedNudgeNotification(idString: idString)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .habitLogRequested)) { notification in
+                guard let idString = notification.object as? String else { return }
+                viewModel.handleHabitLogNotification(idString: idString)
             }
             .refreshable { await viewModel.loadData() }
         }
@@ -98,6 +112,8 @@ struct HomeView: View {
                         .foregroundStyle(.secondary)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("Level \(viewModel.userProfile.level), \(viewModel.userProfile.levelTitle)")
+                    .accessibilityHint("Opens the level guide")
                 }
                 Spacer()
                 ActivityRingView(
@@ -113,8 +129,8 @@ struct HomeView: View {
 
             // Score pill
             HStack(spacing: 20) {
-                ScorePill(label: "Today", value: "\(String(format: "%.1f", viewModel.todaySummary.totalKgCO2)) kg", icon: "leaf.fill", tint: .green)
-                ScorePill(label: "Saved", value: "£\(String(format: "%.2f", viewModel.todaySummary.costSaved))", icon: "sterlingsign.circle.fill", tint: .blue)
+                ScorePill(label: "Net", value: DisplayFormatting.carbon(viewModel.todaySummary.totalKgCO2), icon: "leaf.fill", tint: .green)
+                ScorePill(label: "Avoided", value: DisplayFormatting.carbon(viewModel.todaySummary.totalKgSaved), icon: "arrow.down.circle.fill", tint: .blue)
                 ScorePill(label: "Points", value: "+\(viewModel.todaySummary.pointsEarned)", icon: "star.fill", tint: .yellow)
             }
         }
@@ -122,7 +138,7 @@ struct HomeView: View {
 
     private var nudgesSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            SectionHeader(title: "Today's Nudges", icon: "bell.badge.fill", tint: .orange)
+            SectionHeader(title: "Suggested Actions", icon: "bell.badge.fill", tint: .orange)
             ForEach(viewModel.activeNudges.prefix(3)) { nudge in
                 NudgeCardView(
                     nudge: nudge,
@@ -135,7 +151,7 @@ struct HomeView: View {
 
     private var breakdownSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            SectionHeader(title: "Category Breakdown", icon: "chart.pie.fill", tint: .purple)
+            SectionHeader(title: "Emissions by Category", icon: "chart.pie.fill", tint: .purple)
             DonutChartView(breakdowns: viewModel.todaySummary.byCategory)
                 .frame(height: 220)
                 .padding()
@@ -188,6 +204,9 @@ struct ScorePill: View {
         .padding(.vertical, 10)
         .background(Color(.secondarySystemGroupedBackground))
         .clipShape(RoundedRectangle(cornerRadius: 12))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(label)
+        .accessibilityValue(value)
     }
 }
 
@@ -297,6 +316,8 @@ struct SectionHeader: View {
             Text(title)
                 .font(.headline)
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isHeader)
     }
 }
 
@@ -317,20 +338,27 @@ struct EntryRow: View {
                 Text(entry.notes ?? entry.category.rawValue)
                     .font(.subheadline)
                     .lineLimit(1)
-                Text(entry.date.formatted(date: .omitted, time: .shortened))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                HStack(spacing: 6) {
+                    Text(entry.date.formatted(date: .omitted, time: .shortened))
+                    Text("•")
+                    Text(entry.source.rawValue)
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
 
             Spacer()
 
-            Text("\(String(format: "%.2f", entry.kgCO2)) kg")
+            Text(entry.isSavingEntry ? "Saved \(String(format: "%.2f", entry.absoluteKgCO2)) kg" : "\(String(format: "%.2f", entry.kgCO2)) kg")
                 .font(.subheadline.monospacedDigit())
-                .foregroundStyle(entry.kgCO2 < 0 ? .green : .primary)
+                .foregroundStyle(entry.isSavingEntry ? .green : .primary)
         }
         .padding()
         .background(Color(.secondarySystemGroupedBackground))
         .clipShape(RoundedRectangle(cornerRadius: 12))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(entry.notes ?? entry.category.rawValue)
+        .accessibilityValue(entry.isSavingEntry ? "Saved \(String(format: "%.2f", entry.absoluteKgCO2)) kilograms of carbon dioxide equivalent" : "Emitted \(String(format: "%.2f", entry.kgCO2)) kilograms of carbon dioxide equivalent")
     }
 }
 
@@ -343,8 +371,16 @@ struct LogEntrySheet: View {
     @State private var selectedCategory: CarbonCategory = .transport
     @State private var selectedMode: TransportMode = .car
     @State private var distanceText: String = ""
+    @State private var selectedFoodType: CarbonCalculator.FoodType = .vegetables
+    @State private var gramsText: String = ""
+    @State private var selectedEnergySource: CarbonCalculator.EnergySource = .electricity
+    @State private var kWhText: String = ""
+    @State private var selectedProductCategory: CarbonCalculator.ProductCategory = .clothing
+    @State private var spendText: String = ""
     @State private var manualKgText: String = ""
     @State private var notes: String = ""
+
+    private let carbonCalculator = CarbonCalculator()
 
     var body: some View {
         NavigationStack {
@@ -382,6 +418,7 @@ struct LogEntrySheet: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .background(Color(.tertiarySystemFill))
                         .clipShape(RoundedRectangle(cornerRadius: 14))
+                        .accessibilityElement(children: .combine)
                     }
                 }
                 .listRowBackground(Color.clear)
@@ -406,7 +443,7 @@ struct LogEntrySheet: View {
                         }
                         .pickerStyle(.navigationLink)
 
-                        LabeledContent("Distance (km)") {
+                        LabeledContent("Distance (\(distanceUnitLabel))") {
                             TextField("e.g. 14.5", text: $distanceText)
                                 .keyboardType(.decimalPad)
                                 .multilineTextAlignment(.trailing)
@@ -414,14 +451,74 @@ struct LogEntrySheet: View {
                         }
 
                         Label(
-                            "\(selectedMode.rawValue) emits \(String(format: "%.3f", selectedMode.kgPerKm)) kg per km",
+                            "\(selectedMode.rawValue) emits \(String(format: "%.3f", transportFactorPerDisplayedUnit)) kg per \(distanceUnitLabel)",
                             systemImage: selectedMode.icon
                         )
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     }
+                } else if selectedCategory == .food {
+                    Section("Food Details") {
+                        Picker("Food type", selection: $selectedFoodType) {
+                            ForEach(CarbonCalculator.FoodType.allCases, id: \.self) { type in
+                                Text(type.rawValue).tag(type)
+                            }
+                        }
+                        .pickerStyle(.navigationLink)
+
+                        LabeledContent("Serving size (g)") {
+                            TextField("e.g. 150", text: $gramsText)
+                                .keyboardType(.decimalPad)
+                                .multilineTextAlignment(.trailing)
+                                .frame(width: 90)
+                        }
+
+                        Label("This uses a simple per-serving estimate to help you log food impact consistently.", systemImage: "fork.knife")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                } else if selectedCategory == .energy {
+                    Section("Energy Details") {
+                        Picker("Energy source", selection: $selectedEnergySource) {
+                            ForEach(CarbonCalculator.EnergySource.allCases, id: \.self) { source in
+                                Text(source.rawValue).tag(source)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+
+                        LabeledContent("Usage (kWh)") {
+                            TextField("e.g. 4.5", text: $kWhText)
+                                .keyboardType(.decimalPad)
+                                .multilineTextAlignment(.trailing)
+                                .frame(width: 90)
+                        }
+
+                        Label("Use meter, bill, or appliance estimates when exact usage is not available.", systemImage: "bolt.fill")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                } else if selectedCategory == .shopping {
+                    Section("Shopping Details") {
+                        Picker("Category", selection: $selectedProductCategory) {
+                            ForEach(CarbonCalculator.ProductCategory.allCases, id: \.self) { category in
+                                Text(category.rawValue).tag(category)
+                            }
+                        }
+                        .pickerStyle(.navigationLink)
+
+                        LabeledContent("Spend amount (\(currencyCode))") {
+                            TextField("e.g. 45", text: $spendText)
+                                .keyboardType(.decimalPad)
+                                .multilineTextAlignment(.trailing)
+                                .frame(width: 90)
+                        }
+
+                        Label("Shopping estimates are broad and work best for quick comparisons across purchase types.", systemImage: "bag.fill")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 } else {
-                    Section("Entry Details") {
+                    Section("Manual Estimate") {
                         LabeledContent("CO₂ amount (kg)") {
                             TextField("e.g. 1.5", text: $manualKgText)
                                 .keyboardType(.decimalPad)
@@ -429,7 +526,7 @@ struct LogEntrySheet: View {
                                 .frame(width: 90)
                         }
 
-                        Label("Use your best estimate for this one-off activity.", systemImage: "chart.bar.doc.horizontal")
+                        Label("Use your best estimate for an activity that does not fit the guided calculators above.", systemImage: "chart.bar.doc.horizontal")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -458,24 +555,88 @@ struct LogEntrySheet: View {
     }
 
     private var canSave: Bool {
-        if selectedCategory == .transport {
-            return Double(distanceText) != nil
+        switch selectedCategory {
+        case .transport:
+            return parsedDistanceKm != nil
+        case .food:
+            return Double(gramsText) != nil
+        case .energy:
+            return Double(kWhText) != nil
+        case .shopping:
+            return Double(spendText) != nil
+        case .other:
+            return Double(manualKgText) != nil
         }
-        return Double(manualKgText) != nil
     }
 
     private var estimatedKg: Double {
-        if selectedCategory == .transport {
-            return (Double(distanceText) ?? 0) * selectedMode.kgPerKm
+        switch selectedCategory {
+        case .transport:
+            return carbonCalculator.calculateTransport(
+                mode: selectedMode,
+                distanceKm: parsedDistanceKm ?? 0,
+                region: resolvedRegion
+            )
+        case .food:
+            return carbonCalculator.calculateFood(
+                type: selectedFoodType,
+                grams: Double(gramsText) ?? 0,
+                region: resolvedRegion
+            )
+        case .energy:
+            let kWh = Double(kWhText) ?? 0
+            switch selectedEnergySource {
+            case .electricity:
+                return carbonCalculator.calculateElectricity(kWh: kWh, region: resolvedRegion)
+            case .gas:
+                return carbonCalculator.calculateGas(kWh: kWh, region: resolvedRegion)
+            }
+        case .shopping:
+            return carbonCalculator.calculateShopping(
+                category: selectedProductCategory,
+                spendAmount: Double(spendText) ?? 0,
+                region: resolvedRegion
+            )
+        case .other:
+            return Double(manualKgText) ?? 0
         }
-        return Double(manualKgText) ?? 0
     }
 
     private var impactDescription: String {
-        if selectedCategory == .transport {
-            return "Based on \(selectedMode.rawValue.lowercased()) over \(distanceText.isEmpty ? "0" : distanceText) km."
+        switch selectedCategory {
+        case .transport:
+            return "Based on \(selectedMode.rawValue.lowercased()) over \(distanceText.isEmpty ? "0" : distanceText) \(distanceUnitLabel)."
+        case .food:
+            return "Approximate food estimate based on serving size and category."
+        case .energy:
+            return "Approximate energy estimate based on \(selectedEnergySource.rawValue.lowercased()) usage."
+        case .shopping:
+            return "Broad shopping estimate based on spend and purchase category."
+        case .other:
+            return "This amount will be added to your \(selectedCategory.rawValue.lowercased()) footprint."
         }
-        return "This amount will be added to your \(selectedCategory.rawValue.lowercased()) footprint."
+    }
+
+    private var resolvedRegion: CarbonRegion {
+        viewModel.userProfile.resolvedRegion
+    }
+
+    private var distanceUnitLabel: String {
+        DisplayFormatting.distanceUnitLabel(for: resolvedRegion)
+    }
+
+    private var parsedDistanceKm: Double? {
+        DisplayFormatting.kilometers(from: distanceText, region: resolvedRegion)
+    }
+
+    private var transportFactorPerDisplayedUnit: Double {
+        let kgPerKm = selectedMode.kgPerKm(in: resolvedRegion)
+        switch resolvedRegion.distanceUnit {
+        case .miles:
+            return kgPerKm * 1.60934
+        default:
+            return kgPerKm
+        }
     }
 
     @ViewBuilder
@@ -498,12 +659,32 @@ struct LogEntrySheet: View {
             .frame(width: 78)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(category.rawValue)
+        .accessibilityValue(selectedCategory == category ? "Selected" : "Not selected")
+        .accessibilityHint("Filters the calculator for \(category.rawValue.lowercased()) entries")
+        .accessibilityAddTraits(selectedCategory == category ? .isSelected : [])
+    }
+
+    private var currencyCode: String {
+        viewModel.userProfile.currencyCode
     }
 
     private func save() {
-        if selectedCategory == .transport, let dist = Double(distanceText) {
+        switch selectedCategory {
+        case .transport:
+            guard let dist = parsedDistanceKm else { return }
             viewModel.logTransportEntry(mode: selectedMode, distanceKm: dist)
-        } else if let kg = Double(manualKgText) {
+        case .food:
+            guard let grams = Double(gramsText) else { return }
+            viewModel.logFoodEntry(type: selectedFoodType, grams: grams, notes: notes.isEmpty ? nil : notes)
+        case .energy:
+            guard let kWh = Double(kWhText) else { return }
+            viewModel.logEnergyEntry(source: selectedEnergySource, kWh: kWh, notes: notes.isEmpty ? nil : notes)
+        case .shopping:
+            guard let spendAmount = Double(spendText) else { return }
+            viewModel.logShoppingEntry(category: selectedProductCategory, spendAmount: spendAmount, notes: notes.isEmpty ? nil : notes)
+        case .other:
+            guard let kg = Double(manualKgText) else { return }
             viewModel.logCarbonEntry(
                 category: selectedCategory,
                 kgCO2: kg,

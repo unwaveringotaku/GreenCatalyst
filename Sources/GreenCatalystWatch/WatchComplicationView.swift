@@ -32,93 +32,129 @@ struct WatchComplicationView: View {
 
     private var graphicCircular: some View {
         ZStack {
-            // Progress ring
-            Circle()
-                .stroke(Color.green.opacity(0.25), lineWidth: 4)
-            Circle()
-                .trim(from: 0, to: store.progress)
-                .stroke(Color.green, style: StrokeStyle(lineWidth: 4, lineCap: .round))
-                .rotationEffect(.degrees(-90))
-                .animation(.linear, value: store.progress)
+            if store.hasSyncedData {
+                Circle()
+                    .stroke(Color.green.opacity(0.25), lineWidth: 4)
+                Circle()
+                    .trim(from: 0, to: store.progress)
+                    .stroke(Color.green, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+                    .animation(.linear, value: store.progress)
 
-            // Centre text
-            VStack(spacing: 0) {
-                Text(String(format: "%.0f", store.kgCO2Today))
-                    .font(.system(size: 12, weight: .bold, design: .rounded))
-                    .monospacedDigit()
-                Text("kg")
-                    .font(.system(size: 7))
-                    .foregroundStyle(.secondary)
+                VStack(spacing: 0) {
+                    Text(String(format: "%.0f", store.kgCO2Today))
+                        .font(.system(size: 12, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                    Text("kg")
+                        .font(.system(size: 7))
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                Image(systemName: "iphone")
+                    .foregroundStyle(.green)
             }
         }
         .frame(width: 44, height: 44)
+        .accessibilityLabel(store.hasSyncedData ? "Daily carbon complication" : "Sync required")
+        .accessibilityValue(store.hasSyncedData ? "\(String(format: "%.0f", store.kgCO2Today)) kilograms" : "Open the iPhone app to sync")
     }
 
     // MARK: - Rectangular
 
     private var graphicRectangular: some View {
         HStack(spacing: 8) {
-            // Mini ring
-            ZStack {
-                Circle()
-                    .stroke(Color.green.opacity(0.25), lineWidth: 3)
-                Circle()
-                    .trim(from: 0, to: store.progress)
-                    .stroke(Color.green, style: StrokeStyle(lineWidth: 3, lineCap: .round))
-                    .rotationEffect(.degrees(-90))
-            }
-            .frame(width: 32, height: 32)
+            if !store.hasSyncedData {
+                Image(systemName: "iphone")
+                    .foregroundStyle(.green)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Open iPhone app")
+                        .font(.system(size: 12, weight: .bold))
+                    Text("Sync GreenCatalyst for live data")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                }
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(String(format: "%.1f kg", store.kgCO2Today))
-                    .font(.system(size: 14, weight: .bold, design: .rounded))
-                Text(store.isUnderTarget ? "Under target 🌿" : "Over target ⚠️")
-                    .font(.system(size: 10))
-                    .foregroundStyle(store.isUnderTarget ? .green : .orange)
+                Spacer()
+            } else {
+                // Mini ring
+                ZStack {
+                    Circle()
+                        .stroke(Color.green.opacity(0.25), lineWidth: 3)
+                    Circle()
+                        .trim(from: 0, to: store.progress)
+                        .stroke(Color.green, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                }
+                .frame(width: 32, height: 32)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(String(format: "%.1f kg", store.kgCO2Today))
+                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                    Text(store.isUnderTarget ? "Under target 🌿" : "Over target ⚠️")
+                        .font(.system(size: 10))
+                        .foregroundStyle(store.isUnderTarget ? .green : .orange)
+                }
             }
 
             Spacer()
         }
         .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
     }
 
     // MARK: - Corner
 
     private var graphicCorner: some View {
         ZStack {
-            // Arc progress
-            Circle()
-                .trim(from: 0.05, to: 0.45)
-                .stroke(Color.green.opacity(0.3), lineWidth: 5)
-                .rotationEffect(.degrees(-90))
-            Circle()
-                .trim(from: 0.05, to: max(0.05, 0.45 * store.progress))
-                .stroke(Color.green, style: StrokeStyle(lineWidth: 5, lineCap: .round))
-                .rotationEffect(.degrees(-90))
-
-            VStack(spacing: 0) {
-                Image(systemName: "leaf.fill")
+            if !store.hasSyncedData {
+                Image(systemName: "iphone")
                     .font(.system(size: 10))
                     .foregroundStyle(.green)
-                Text(String(format: "%.0f", store.kgCO2Today))
-                    .font(.system(size: 11, weight: .bold))
+            } else {
+                // Arc progress
+                Circle()
+                    .trim(from: 0.05, to: 0.45)
+                    .stroke(Color.green.opacity(0.3), lineWidth: 5)
+                    .rotationEffect(.degrees(-90))
+                Circle()
+                    .trim(from: 0.05, to: max(0.05, 0.45 * store.progress))
+                    .stroke(Color.green, style: StrokeStyle(lineWidth: 5, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+
+                VStack(spacing: 0) {
+                    Image(systemName: "leaf.fill")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.green)
+                    Text(String(format: "%.0f", store.kgCO2Today))
+                        .font(.system(size: 11, weight: .bold))
+                }
             }
         }
+        .accessibilityElement(children: .combine)
     }
 
     // MARK: - Modular Small
 
     private var modularSmall: some View {
         VStack(spacing: 2) {
-            Image(systemName: "leaf.fill")
-                .foregroundStyle(.green)
-                .font(.system(size: 12))
-            Text(String(format: "%.1f", store.kgCO2Today))
-                .font(.system(size: 14, weight: .bold).monospacedDigit())
-            Text("kg CO₂")
-                .font(.system(size: 8))
-                .foregroundStyle(.secondary)
+            if store.hasSyncedData {
+                Image(systemName: "leaf.fill")
+                    .foregroundStyle(.green)
+                    .font(.system(size: 12))
+                Text(String(format: "%.1f", store.kgCO2Today))
+                    .font(.system(size: 14, weight: .bold).monospacedDigit())
+                Text("kg CO₂")
+                    .font(.system(size: 8))
+                    .foregroundStyle(.secondary)
+            } else {
+                Image(systemName: "iphone")
+                    .foregroundStyle(.green)
+                    .font(.system(size: 12))
+                Text("Sync")
+                    .font(.system(size: 10, weight: .bold))
+            }
         }
+        .accessibilityElement(children: .combine)
     }
 }
 

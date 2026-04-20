@@ -33,14 +33,53 @@ enum CarbonCategory: String, Codable, CaseIterable, Identifiable {
         }
     }
 
-    /// Average UK per-category daily budget in kg CO₂e
+    /// Default per-category daily budget in kg CO₂e for the global average.
     var dailyBudgetKg: Double {
+        dailyBudgetKg(in: .globalAverage)
+    }
+
+    func dailyBudgetKg(in region: CarbonRegion) -> Double {
         switch self {
-        case .energy:    return 2.5
-        case .transport: return 4.0
-        case .food:      return 2.8
-        case .shopping:  return 1.8
-        case .other:     return 0.9
+        case .energy:
+            switch region {
+            case .northAmerica:     return 3.6
+            case .unitedKingdom:    return 2.5
+            case .continentalEurope:return 2.2
+            case .oceania:          return 3.8
+            case .globalAverage:    return 2.8
+            }
+        case .transport:
+            switch region {
+            case .northAmerica:     return 5.4
+            case .unitedKingdom:    return 4.0
+            case .continentalEurope:return 3.3
+            case .oceania:          return 5.2
+            case .globalAverage:    return 4.1
+            }
+        case .food:
+            switch region {
+            case .northAmerica:     return 3.3
+            case .unitedKingdom:    return 2.8
+            case .continentalEurope:return 2.6
+            case .oceania:          return 3.0
+            case .globalAverage:    return 2.8
+            }
+        case .shopping:
+            switch region {
+            case .northAmerica:     return 2.3
+            case .unitedKingdom:    return 1.8
+            case .continentalEurope:return 1.6
+            case .oceania:          return 2.0
+            case .globalAverage:    return 1.8
+            }
+        case .other:
+            switch region {
+            case .northAmerica:     return 1.2
+            case .unitedKingdom:    return 0.9
+            case .continentalEurope:return 0.8
+            case .oceania:          return 1.1
+            case .globalAverage:    return 0.9
+            }
         }
     }
 }
@@ -75,16 +114,47 @@ enum TransportMode: String, Codable, CaseIterable {
     case flight    = "Flight"
     case ferry     = "Ferry"
 
-    /// Emission factor in kg CO₂e per km
+    /// Default emission factor in kg CO₂e per km for the global average.
     var kgPerKm: Double {
+        kgPerKm(in: .globalAverage)
+    }
+
+    func kgPerKm(in region: CarbonRegion) -> Double {
         switch self {
-        case .walking:          return 0.0
-        case .cycling:          return 0.0
-        case .running:          return 0.0
-        case .car:              return 0.171   // average UK petrol car
-        case .publicTransport:  return 0.089   // average UK bus
-        case .flight:           return 0.255   // short-haul per km
-        case .ferry:            return 0.113
+        case .walking, .cycling, .running:
+            return 0.0
+        case .car:
+            switch region {
+            case .northAmerica:     return 0.251
+            case .unitedKingdom:    return 0.171
+            case .continentalEurope:return 0.156
+            case .oceania:          return 0.214
+            case .globalAverage:    return 0.192
+            }
+        case .publicTransport:
+            switch region {
+            case .northAmerica:     return 0.104
+            case .unitedKingdom:    return 0.089
+            case .continentalEurope:return 0.071
+            case .oceania:          return 0.096
+            case .globalAverage:    return 0.090
+            }
+        case .flight:
+            switch region {
+            case .northAmerica:     return 0.245
+            case .unitedKingdom:    return 0.255
+            case .continentalEurope:return 0.230
+            case .oceania:          return 0.270
+            case .globalAverage:    return 0.248
+            }
+        case .ferry:
+            switch region {
+            case .northAmerica:     return 0.140
+            case .unitedKingdom:    return 0.113
+            case .continentalEurope:return 0.102
+            case .oceania:          return 0.125
+            case .globalAverage:    return 0.118
+            }
         }
     }
 
@@ -140,6 +210,14 @@ final class CarbonEntry: Identifiable {
         self.distanceKm = distanceKm
         self.isVerified = isVerified
         self.createdAt = .now
+    }
+
+    var isSavingEntry: Bool {
+        kgCO2 < 0
+    }
+
+    var absoluteKgCO2: Double {
+        abs(kgCO2)
     }
 }
 

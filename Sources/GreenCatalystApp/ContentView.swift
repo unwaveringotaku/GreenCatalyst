@@ -73,37 +73,13 @@ struct ContentView: View {
 
             ProgressView("Loading GreenCatalyst...")
                 .progressViewStyle(.circular)
+                .accessibilityLabel("Loading GreenCatalyst")
         }
     }
 
     // MARK: - Onboarding Check
 
     private func checkOnboardingState() async {
-        // Migrate existing users who completed the old UserDefaults-based onboarding
-        if UserDefaults.standard.bool(forKey: "hasSeenOnboarding") {
-            if let profile = try? await DataStore.shared.fetchUserProfile(),
-               !profile.hasCompletedOnboarding {
-                profile.hasCompletedOnboarding = true
-                try? await DataStore.shared.saveProfile(profile)
-                CloudProfileStore.shared.backupProfile(profile, appleUserID: nil)
-            }
-        }
-
-        // Try restoring from iCloud KV store (handles reinstall case)
-        if let backup = CloudProfileStore.shared.restoreProfile() {
-            if let profile = try? await DataStore.shared.fetchUserProfile(),
-               !profile.hasCompletedOnboarding {
-                profile.name = backup.name
-                profile.email = backup.email
-                profile.dietaryPreference = backup.dietaryPreference
-                profile.targetKgPerDay = backup.targetKgPerDay
-                profile.appleUserIdentifier = backup.appleUserID
-                profile.hasCompletedOnboarding = true
-                try? await DataStore.shared.saveProfile(profile)
-            }
-        }
-
-        // Check if onboarding is needed
         let profile = try? await DataStore.shared.fetchUserProfile()
         showOnboarding = !(profile?.hasCompletedOnboarding ?? false)
         isCheckingOnboarding = false
@@ -155,14 +131,14 @@ struct OnboardingCarouselView: View {
     private let pages: [OnboardingPage] = [
         OnboardingPage(
             icon: "leaf.circle.fill",
-            title: "Track Your Footprint",
-            body: "Log transport, food, energy, and shopping to understand your personal carbon impact.",
+            title: "Track Your Impact",
+            body: "Log transport, food, energy, and shopping with simple calculators and keep a running view of your daily footprint.",
             tint: .green
         ),
         OnboardingPage(
             icon: "bell.badge.fill",
-            title: "Smart Nudges",
-            body: "Receive personalised, time-sensitive action suggestions that save CO₂ and money.",
+            title: "Suggested Actions",
+            body: "Get practical low-carbon prompts based on common habits. In this build, suggestions are guide cards rather than live weather or utility analysis.",
             tint: .orange
         ),
         OnboardingPage(
@@ -173,8 +149,8 @@ struct OnboardingCarouselView: View {
         ),
         OnboardingPage(
             icon: "heart.fill",
-            title: "HealthKit + Siri",
-            body: "Automatically detect your commute from HealthKit and log activities with your voice.",
+            title: "HealthKit + Shortcuts",
+            body: "Import workout-based trips from HealthKit and use app shortcuts for quick voice logging.",
             tint: .pink
         ),
     ]
@@ -199,14 +175,17 @@ struct OnboardingCarouselView: View {
                         .buttonStyle(.borderedProminent)
                         .tint(.green)
                         .frame(maxWidth: .infinity)
+                        .accessibilityHint("Moves to the next onboarding page")
 
                         Button("Skip") { finish() }
                             .foregroundStyle(.secondary)
+                            .accessibilityHint("Skips onboarding details")
                     } else {
                         Button("Get Started 🌿") { finish() }
                             .buttonStyle(.borderedProminent)
                             .tint(.green)
                             .frame(maxWidth: .infinity)
+                            .accessibilityHint("Finishes onboarding")
                     }
                 }
                 .padding(.horizontal, 24)
@@ -254,6 +233,7 @@ struct OnboardingPageView: View {
             Spacer()
         }
         .padding(.horizontal, 24)
+        .accessibilityElement(children: .combine)
     }
 }
 

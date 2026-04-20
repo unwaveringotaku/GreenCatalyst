@@ -28,6 +28,7 @@ struct NudgeCardView: View {
                 actionLabel(icon: "xmark.circle.fill", text: "Skip", color: .gray)
             }
             .padding(.horizontal)
+            .accessibilityHidden(true)
 
             // Card
             cardContent
@@ -91,7 +92,7 @@ struct NudgeCardView: View {
             HStack(spacing: 8) {
                 SavingPill(icon: "leaf.fill", value: String(format: "%.1f kg CO₂", nudge.co2Saving), tint: .green)
                 if nudge.costSaving > 0 {
-                    SavingPill(icon: "sterlingsign.circle.fill", value: String(format: "£%.2f", nudge.costSaving), tint: .blue)
+                    SavingPill(icon: "banknote.fill", value: DisplayFormatting.currency(nudge.costSaving), tint: .blue)
                 }
                 Spacer()
 
@@ -102,6 +103,8 @@ struct NudgeCardView: View {
                 .buttonStyle(.bordered)
                 .tint(.gray)
                 .disabled(isDone || isGone)
+                .accessibilityLabel("Skip suggestion")
+                .accessibilityHint("Dismisses this suggestion")
 
                 Button(action: handleComplete) {
                     Label("Done", systemImage: "checkmark")
@@ -110,12 +113,20 @@ struct NudgeCardView: View {
                 .buttonStyle(.borderedProminent)
                 .tint(.green)
                 .disabled(isDone || isGone)
+                .accessibilityLabel("Complete suggestion")
+                .accessibilityHint("Logs this suggestion as completed")
             }
         }
         .padding()
         .background(Color(.secondarySystemGroupedBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.06), radius: 6, y: 3)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(nudge.title)
+        .accessibilityValue(cardAccessibilityValue)
+        .accessibilityHint("Use the Done or Skip buttons to act on this suggestion")
+        .accessibilityAction(named: "Done") { handleComplete() }
+        .accessibilityAction(named: "Skip") { handleDismiss() }
     }
 
     // MARK: - Helpers
@@ -184,6 +195,27 @@ struct SavingPill: View {
         .padding(.vertical, 4)
         .background(tint.opacity(0.12))
         .clipShape(Capsule())
+        .accessibilityElement(children: .combine)
+    }
+}
+
+private extension NudgeCardView {
+    var cardAccessibilityValue: String {
+        var parts = [nudge.nudgeDescription, "Saves \(String(format: "%.1f", nudge.co2Saving)) kilograms of carbon dioxide equivalent"]
+
+        if nudge.costSaving > 0 {
+            parts.append("\(DisplayFormatting.currency(nudge.costSaving)) saved")
+        }
+
+        if let remaining = nudge.timeRemainingText {
+            parts.append(remaining)
+        }
+
+        if nudge.priority == .high {
+            parts.append("High priority")
+        }
+
+        return parts.joined(separator: ", ")
     }
 }
 

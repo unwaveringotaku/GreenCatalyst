@@ -27,8 +27,12 @@ struct DonutChartView: View {
             HStack(spacing: 20) {
                 donutCanvas
                     .frame(width: 130, height: 130)
+                    .accessibilityHidden(true)
                 legend
             }
+            .accessibilityLabel("Emissions by category")
+            .accessibilityValue(chartSummary)
+            .accessibilityHint("Select a category row to hear more detail")
         }
     }
 
@@ -134,6 +138,12 @@ struct DonutChartView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(breakdown.category.rawValue)
+                .accessibilityValue(
+                    "\(String(format: "%.1f", breakdown.kgCO2)) kilograms, \(String(format: "%.0f", breakdown.percentOfTotal * 100)) percent of total"
+                )
+                .accessibilityHint(selectedIndex == index ? "Double-tap to clear the selection" : "Double-tap to focus this category")
+                .accessibilityAddTraits(selectedIndex == index ? .isSelected : [])
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -146,11 +156,12 @@ struct DonutChartView: View {
             Image(systemName: "chart.pie")
                 .font(.largeTitle)
                 .foregroundStyle(.tertiary)
-            Text("No entries yet today")
+            Text("No emission entries yet")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, minHeight: 130)
+        .accessibilityElement(children: .combine)
     }
 
     // MARK: - Hit Testing
@@ -176,6 +187,13 @@ struct DonutChartView: View {
             cumulative += sweep
         }
         return nil
+    }
+
+    private var chartSummary: String {
+        let categories = breakdowns
+            .map { "\($0.category.rawValue) \(String(format: "%.0f", $0.percentOfTotal * 100)) percent" }
+            .joined(separator: ", ")
+        return "Net \(String(format: "%.1f", netTotal)) kilograms. \(categories)"
     }
 }
 

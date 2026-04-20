@@ -18,42 +18,50 @@ struct GetCarbonScoreIntent: AppIntent {
     // MARK: - Perform
 
     func perform() async throws -> some IntentResult & ProvidesDialog & ReturnsValue<Double> {
-        let (totalKg, target, name) = try await MainActor.run {
+        let (totalKg, target) = try await MainActor.run {
             let store = DataStore.shared
             let entries = try store.fetchTodaysEntriesSync()
-            let totalKg = entries.reduce(0.0) { $0 + max(0, $1.kgCO2) }
+            let totalKg = entries.reduce(0.0) { $0 + $1.kgCO2 }
             let profile = try store.fetchUserProfileSync()
-            return (totalKg, profile.targetKgPerDay, profile.name)
+            return (totalKg, profile.targetKgPerDay)
         }
 
-        let dialog = buildDialog(totalKg: totalKg, target: target, name: name)
+        let dialog = buildDialog(totalKg: totalKg, target: target)
         return .result(value: totalKg, dialog: dialog)
     }
 
     // MARK: - Dialog Builder
 
-    private func buildDialog(totalKg: Double, target: Double, name: String) -> IntentDialog {
+    private func buildDialog(totalKg: Double, target: Double) -> IntentDialog {
         let formattedKg = String(format: "%.1f", totalKg)
         let formattedTarget = String(format: "%.0f", target)
         let remaining = target - totalKg
 
         if totalKg == 0 {
             return IntentDialog(
-                full: "You haven't logged any carbon activity today yet. Your daily target is \(formattedTarget) kg CO₂.",
+                full: "You have not logged any activity yet today. Your net footprint target is \(formattedTarget) kg CO₂.",
                 supporting: "No entries today."
+            )
+        }
+
+        if totalKg < 0 {
+            let avoided = String(format: "%.1f", abs(totalKg))
+            return IntentDialog(
+                full: "Your logged savings currently outweigh your emissions. You are \(avoided) kg CO₂ below zero and well under your \(formattedTarget) kg target.",
+                supporting: "\(avoided) kg CO₂ net avoided so far."
             )
         }
 
         if remaining > 0 {
             let remainingFormatted = String(format: "%.1f", remaining)
             return IntentDialog(
-                full: "You've used \(formattedKg) kg CO₂ today — you're under your \(formattedTarget) kg target with \(remainingFormatted) kg to spare. Keep it green! 🌿",
+                full: "Your net footprint is \(formattedKg) kg CO₂ today. You are under your \(formattedTarget) kg target with \(remainingFormatted) kg remaining.",
                 supporting: "\(formattedKg) kg used, \(remainingFormatted) kg remaining."
             )
         } else {
             let over = String(format: "%.1f", abs(remaining))
             return IntentDialog(
-                full: "You've used \(formattedKg) kg CO₂ today, which is \(over) kg over your \(formattedTarget) kg target. Try a greener choice for the rest of the day.",
+                full: "Your net footprint is \(formattedKg) kg CO₂ today, which is \(over) kg over your \(formattedTarget) kg target.",
                 supporting: "\(formattedKg) kg used, \(over) kg over target."
             )
         }
@@ -93,7 +101,7 @@ struct CarbonScoreQuery: EntityQuery {
             let store = DataStore.shared
             let entries = try store.fetchTodaysEntriesSync()
             let profile = try store.fetchUserProfileSync()
-            let total = entries.reduce(0.0) { $0 + max(0, $1.kgCO2) }
+            let total = entries.reduce(0.0) { $0 + $1.kgCO2 }
             return CarbonScoreEntity(
                 id: "today",
                 kgCO2Today: total,

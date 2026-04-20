@@ -36,17 +36,17 @@ enum ActivityType: String, AppEnum {
         }
     }
 
-    func kgCO2(distanceKm: Double) -> Double {
+    func kgCO2(distanceKm: Double, region: CarbonRegion) -> Double {
         let calc = CarbonCalculator()
         switch self {
         case .bikeCommute:     return 0   // zero emissions
         case .walkCommute:     return 0
-        case .carCommute:      return calc.calculateTransport(mode: .car, distanceKm: distanceKm)
-        case .publicTransport: return calc.calculateTransport(mode: .publicTransport, distanceKm: distanceKm)
-        case .meatFreeMeal:    return 1.8  // average saving per plant-based meal
-        case .shortShower:     return 0.4
-        case .energySaving:    return 0.5
-        case .recycling:       return 0.2
+        case .carCommute:      return calc.calculateTransport(mode: .car, distanceKm: distanceKm, region: region)
+        case .publicTransport: return calc.calculateTransport(mode: .publicTransport, distanceKm: distanceKm, region: region)
+        case .meatFreeMeal:    return -1.8
+        case .shortShower:     return -0.4
+        case .energySaving:    return -0.5
+        case .recycling:       return -0.2
         }
     }
 }
@@ -84,7 +84,10 @@ struct LogActivityIntent: AppIntent {
     // MARK: - Perform
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        let kg = activityType.kgCO2(distanceKm: distanceKm)
+        let region = try await MainActor.run {
+            try DataStore.shared.fetchUserProfileSync().resolvedRegion
+        }
+        let kg = activityType.kgCO2(distanceKm: distanceKm, region: region)
         let entry = CarbonEntry(
             category: activityType.carbonCategory,
             kgCO2: kg,
@@ -103,12 +106,17 @@ struct LogActivityIntent: AppIntent {
         let dialog: IntentDialog
         if kg == 0 {
             dialog = IntentDialog(
-                full: "Logged! Great choice — \(activityType.rawValue) produces zero emissions. Keep it up! 🌿",
+                full: "Logged. \(activityType.rawValue) adds zero direct emissions to your daily footprint.",
                 supporting: "Zero-emission activity logged."
+            )
+        } else if kg < 0 {
+            dialog = IntentDialog(
+                full: "Logged \(activityType.rawValue). Estimated savings: \(String(format: "%.1f", abs(kg))) kg CO₂ avoided.",
+                supporting: "\(String(format: "%.1f", abs(kg))) kg CO₂ avoided."
             )
         } else {
             dialog = IntentDialog(
-                full: "Logged \(activityType.rawValue). That's \(String(format: "%.1f", kg)) kg CO₂. \(motivationalSuffix(kg))",
+                full: "Logged \(activityType.rawValue). That adds \(String(format: "%.1f", kg)) kg CO₂. \(motivationalSuffix(kg))",
                 supporting: "\(String(format: "%.1f", kg)) kg CO₂ logged."
             )
         }

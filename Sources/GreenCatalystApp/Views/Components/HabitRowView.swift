@@ -75,7 +75,7 @@ struct HabitRowView: View {
                         .font(.caption2)
                         .foregroundStyle(.green)
                     if habit.costPerAction > 0 {
-                        Label(String(format: "£%.2f", habit.costPerAction), systemImage: "sterlingsign.circle.fill")
+                        Label(DisplayFormatting.currency(habit.costPerAction), systemImage: "banknote.fill")
                             .font(.caption2)
                             .foregroundStyle(.blue)
                     }
@@ -88,8 +88,12 @@ struct HabitRowView: View {
         }
         .contentShape(Rectangle())
         .onTapGesture(perform: onEdit)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(habit.name)
+        .accessibilityValue(rowAccessibilityValue)
         .accessibilityAddTraits(.isButton)
         .accessibilityHint("Opens habit details")
+        .accessibilityAction(named: "Edit") { onEdit() }
     }
 
     // MARK: - Completion Button
@@ -124,6 +128,8 @@ struct HabitRowView: View {
         }
         .buttonStyle(.plain)
         .disabled(habit.isCompletedToday)
+        .accessibilityLabel(habit.isCompletedToday ? "\(habit.name) completed today" : "Complete \(habit.name)")
+        .accessibilityHint(habit.isCompletedToday ? "Already completed" : "Marks the habit complete for today")
     }
 
     // MARK: - Streak Badge
@@ -143,6 +149,30 @@ struct HabitRowView: View {
                 .foregroundStyle(.secondary)
         }
         .frame(width: 50)
+        .accessibilityHidden(true)
+    }
+
+    private var rowAccessibilityValue: String {
+        var parts = [
+            habit.category.rawValue,
+            habit.frequency.rawValue,
+            "\(String(format: "%.1f", habit.co2PerAction)) kilograms carbon saved per completion",
+            "\(habit.streakCount) day streak",
+        ]
+
+        if habit.costPerAction > 0 {
+            parts.append("\(DisplayFormatting.currency(habit.costPerAction)) saved each time")
+        }
+
+        if habit.isCompletedToday {
+            parts.append("Completed today")
+        }
+
+        if habit.isStreakAtRisk {
+            parts.append("Streak at risk")
+        }
+
+        return parts.joined(separator: ", ")
     }
 }
 

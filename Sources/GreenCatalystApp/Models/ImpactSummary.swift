@@ -63,10 +63,12 @@ struct ImpactSummary: Identifiable {
     let period: SummaryPeriod
     let startDate: Date
     let endDate: Date
+    let region: CarbonRegion
 
     // Core metrics
     let totalKgCO2: Double
-    let totalKgSaved: Double          // vs baseline / target
+    let grossEmissionsKg: Double
+    let totalKgSaved: Double          // estimated avoided emissions
     let targetKgCO2: Double
 
     // Breakdown
@@ -74,7 +76,7 @@ struct ImpactSummary: Identifiable {
     let equivalencies: [Equivalency]
 
     // Financial
-    let costSaved: Double             // £ saved vs baseline
+    let costSaved: Double             // estimated local currency saved vs baseline
 
     // Gamification
     let pointsEarned: Int
@@ -90,7 +92,9 @@ struct ImpactSummary: Identifiable {
         period: SummaryPeriod,
         startDate: Date,
         endDate: Date,
+        region: CarbonRegion = .globalAverage,
         totalKgCO2: Double,
+        grossEmissionsKg: Double,
         totalKgSaved: Double,
         targetKgCO2: Double,
         byCategory: [CategoryBreakdown],
@@ -105,7 +109,9 @@ struct ImpactSummary: Identifiable {
         self.period = period
         self.startDate = startDate
         self.endDate = endDate
+        self.region = region
         self.totalKgCO2 = totalKgCO2
+        self.grossEmissionsKg = grossEmissionsKg
         self.totalKgSaved = totalKgSaved
         self.targetKgCO2 = targetKgCO2
         self.byCategory = byCategory
@@ -115,32 +121,41 @@ struct ImpactSummary: Identifiable {
         self.nudgesActedOn = nudgesActedOn
         self.vsLastPeriodDelta = vsLastPeriodDelta
         self.vsNationalAverageDelta = vsNationalAverageDelta
-        self.equivalencies = ImpactSummary.equivalencies(for: totalKgSaved)
+        self.equivalencies = ImpactSummary.equivalencies(for: totalKgSaved, region: region)
     }
 
     // MARK: - Computed
 
     var score: Int {
-        // 0-100 score: ratio of target met
+        // 0-100 score based on net emissions against target.
         guard targetKgCO2 > 0 else { return 0 }
-        let ratio = totalKgCO2 / targetKgCO2
-        return max(0, min(100, Int((1 - ratio) * 100) + 50))
+        let ratio = max(0, totalKgCO2) / targetKgCO2
+        return max(0, min(100, Int((1 - ratio) * 100)))
     }
 
     var isUnderTarget: Bool { totalKgCO2 <= targetKgCO2 }
 
     var progressPercent: Double {
         guard targetKgCO2 > 0 else { return 0 }
-        return min(1.0, abs(totalKgCO2) / targetKgCO2)
+        return min(1.0, max(0, totalKgCO2) / targetKgCO2)
+    }
+
+    var remainingBudgetKg: Double {
+        max(0, targetKgCO2 - max(0, totalKgCO2))
     }
 
     // MARK: - Equivalency factory
 
-    static func equivalencies(for kgSaved: Double) -> [Equivalency] {
+    static func equivalencies(for kgSaved: Double, region: CarbonRegion) -> [Equivalency] {
         var result: [Equivalency] = []
         if kgSaved >= 0.1 {
-            let km = kgSaved / 0.171
-            result.append(Equivalency(icon: "car.fill", label: String(format: "%.0f km not driven", km)))
+            let avoidedCarDistanceKm = kgSaved / TransportMode.car.kgPerKm(in: region)
+            result.append(
+                Equivalency(
+                    icon: "car.fill",
+                    label: "\(DisplayFormatting.distance(avoidedCarDistanceKm, region: region)) not driven"
+                )
+            )
         }
         if kgSaved >= 0.5 {
             let trees = kgSaved / 21.0      // 1 tree absorbs ~21 kg CO₂/year
@@ -163,13 +178,16 @@ struct ImpactSummary: Identifiable {
 extension ImpactSummary {
     static func empty(
         period: SummaryPeriod = .today,
-        targetKgCO2: Double = 8.0
+        targetKgCO2: Double = 8.0,
+        region: CarbonRegion = .globalAverage
     ) -> ImpactSummary {
         ImpactSummary(
             period: period,
             startDate: Calendar.current.startOfDay(for: .now),
             endDate: .now,
+            region: region,
             totalKgCO2: 0,
+            grossEmissionsKg: 0,
             totalKgSaved: 0,
             targetKgCO2: targetKgCO2,
             byCategory: [],
@@ -193,7 +211,9 @@ extension ImpactSummary {
             period: .today,
             startDate: Calendar.current.startOfDay(for: .now),
             endDate: .now,
+            region: .unitedKingdom,
             totalKgCO2: 4.6,
+            grossEmissionsKg: 6.4,
             totalKgSaved: 3.4,
             targetKgCO2: 8.0,
             byCategory: breakdowns,

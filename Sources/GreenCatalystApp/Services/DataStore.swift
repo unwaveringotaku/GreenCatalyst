@@ -35,6 +35,85 @@ struct HabitCompletionStats: Equatable {
 
 extension Notification.Name {
     static let habitDataDidChange = Notification.Name("habitDataDidChange")
+    static let carbonDataDidChange = Notification.Name("GreenCatalyst.carbonDataDidChange")
+}
+
+// MARK: - ProfileSnapshot
+
+/// Lightweight local backup used to recover the profile after schema resets.
+struct ProfileSnapshot: Codable {
+    let name: String
+    let email: String?
+    let dietaryPreference: DietaryPreference
+    let targetKgPerDay: Double
+    let regionPreference: CarbonRegionPreference
+    let hasCompletedOnboarding: Bool
+    let permissions: GrantedPermissions
+    let notificationEnabled: Bool
+    let totalPoints: Int
+    let level: Int
+    let badges: [String]
+
+    func makeProfile() -> UserProfile {
+        let profile = UserProfile(
+            name: name,
+            email: email,
+            targetKgPerDay: targetKgPerDay,
+            dietaryPreference: dietaryPreference,
+            regionPreference: regionPreference
+        )
+        profile.hasCompletedOnboarding = hasCompletedOnboarding
+        profile.permissions = permissions
+        profile.notificationEnabled = notificationEnabled
+        profile.totalPoints = totalPoints
+        profile.level = level
+        profile.badges = badges
+        return profile
+    }
+}
+
+// MARK: - ProfileSnapshotStore
+
+@MainActor
+final class ProfileSnapshotStore {
+
+    static let shared = ProfileSnapshotStore()
+
+    private let defaults: UserDefaults
+    private let snapshotKey = "GreenCatalyst.profileSnapshot"
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+    }
+
+    func backupProfile(_ profile: UserProfile) {
+        let snapshot = ProfileSnapshot(
+            name: profile.name,
+            email: profile.email,
+            dietaryPreference: profile.dietaryPreference,
+            targetKgPerDay: profile.targetKgPerDay,
+            regionPreference: profile.regionPreference,
+            hasCompletedOnboarding: profile.hasCompletedOnboarding,
+            permissions: profile.permissions,
+            notificationEnabled: profile.notificationEnabled,
+            totalPoints: profile.totalPoints,
+            level: profile.level,
+            badges: profile.badges
+        )
+
+        if let data = try? JSONEncoder().encode(snapshot) {
+            defaults.set(data, forKey: snapshotKey)
+        }
+    }
+
+    func restoreProfile() -> ProfileSnapshot? {
+        guard let data = defaults.data(forKey: snapshotKey) else { return nil }
+        return try? JSONDecoder().decode(ProfileSnapshot.self, from: data)
+    }
+
+    func clear() {
+        defaults.removeObject(forKey: snapshotKey)
+    }
 }
 
 // MARK: - DataStore
@@ -99,8 +178,8 @@ final class DataStore {
         let descriptor = FetchDescriptor<UserProfile>()
         let results = try context.fetch(descriptor)
         if let profile = results.first { return profile }
-        // Create default profile on first launch
-        let profile = UserProfile()
+        // Restore the last known profile after a schema reset if available.
+        let profile = ProfileSnapshotStore.shared.restoreProfile()?.makeProfile() ?? UserProfile()
         context.insert(profile)
         try context.save()
         return profile
@@ -110,6 +189,7 @@ final class DataStore {
         context.insert(profile)
         do {
             try context.save()
+            ProfileSnapshotStore.shared.backupProfile(profile)
         } catch {
             throw DataStoreError.saveFailed(error)
         }
@@ -120,50 +200,69 @@ final class DataStore {
     func fetchTodaysEntries() async throws -> [CarbonEntry] {
         let today = Calendar.current.startOfDay(for: .now)
         let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: today)!
-        var descriptor = FetchDescriptor<CarbonEntry>(
-            predicate: #Predicate<CarbonEntry> { entry in
-                entry.date >= today && entry.date < tomorrow
-            },
-            sortBy: [SortDescriptor(\.date, order: .reverse)]
-        )
-        descriptor.fetchLimit = 100
+        return try await fetchEntries(from: today, to: tomorrow, inclusiveEnd: false)
+    }
+
+    func fetchEntries(from start: Date, to end: Date, inclusiveEnd: Bool = true) async throws -> [CarbonEntry] {
         do {
-            return try context.fetch(descriptor)
+            return try fetchEntriesSync(from: start, to: end, inclusiveEnd: inclusiveEnd)
         } catch {
             throw DataStoreError.fetchFailed(error)
         }
     }
 
+    private func fetchEntriesSync(from start: Date, to end: Date, inclusiveEnd: Bool) throws -> [CarbonEntry] {
+        var descriptor: FetchDescriptor<CarbonEntry>
+        if inclusiveEnd {
+            descriptor = FetchDescriptor<CarbonEntry>(
+                predicate: #Predicate<CarbonEntry> { entry in
+                    entry.date >= start && entry.date <= end
+                },
+                sortBy: [SortDescriptor(\.date, order: .reverse)]
+            )
+        } else {
+            descriptor = FetchDescriptor<CarbonEntry>(
+                predicate: #Predicate<CarbonEntry> { entry in
+                    entry.date >= start && entry.date < end
+                },
+                sortBy: [SortDescriptor(\.date, order: .reverse)]
+            )
+        }
+        descriptor.fetchLimit = 1000
+        return try context.fetch(descriptor)
+    }
+
     func fetchEntries(for period: SummaryPeriod) async throws -> [CarbonEntry] {
         let start = startDate(for: period)
         let end = Date.now
-        var descriptor = FetchDescriptor<CarbonEntry>(
-            predicate: #Predicate<CarbonEntry> { entry in
-                entry.date >= start && entry.date <= end
-            },
-            sortBy: [SortDescriptor(\.date, order: .reverse)]
-        )
-        descriptor.fetchLimit = 1000
-        do {
-            return try context.fetch(descriptor)
-        } catch {
-            throw DataStoreError.fetchFailed(error)
-        }
+        return try await fetchEntries(from: start, to: end)
     }
 
     func saveEntry(_ entry: CarbonEntry) async throws {
         context.insert(entry)
         do {
             try context.save()
+            NotificationCenter.default.post(name: .carbonDataDidChange, object: nil)
         } catch {
             throw DataStoreError.saveFailed(error)
         }
+    }
+
+    @discardableResult
+    func saveEntryIfNeeded(_ entry: CarbonEntry) async throws -> Bool {
+        if try existingEntry(matching: entry) != nil {
+            return false
+        }
+
+        try await saveEntry(entry)
+        return true
     }
 
     func deleteEntry(_ entry: CarbonEntry) async throws {
         context.delete(entry)
         do {
             try context.save()
+            NotificationCenter.default.post(name: .carbonDataDidChange, object: nil)
         } catch {
             throw DataStoreError.deleteFailed(error)
         }
@@ -176,7 +275,16 @@ final class DataStore {
             sortBy: [SortDescriptor(\.createdAt, order: .forward)]
         )
         do {
-            return try context.fetch(descriptor)
+            var habits = try context.fetch(descriptor)
+            if habits.isEmpty {
+                habits = Habit.defaults
+                for habit in habits {
+                    context.insert(habit)
+                }
+                try context.save()
+                NotificationCenter.default.post(name: .habitDataDidChange, object: nil)
+            }
+            return habits
         } catch {
             throw DataStoreError.fetchFailed(error)
         }
@@ -203,7 +311,14 @@ final class DataStore {
     func fetchHabitCompletionStats(for period: SummaryPeriod) async throws -> HabitCompletionStats {
         let start = startDate(for: period)
         let end = Date.now
+        return try await fetchHabitCompletionStats(from: start, to: end)
+    }
 
+    func fetchHabitCompletionStats(from start: Date, to end: Date) async throws -> HabitCompletionStats {
+        try await calculateHabitCompletionStats(from: start, to: end)
+    }
+
+    private func calculateHabitCompletionStats(from start: Date, to end: Date) async throws -> HabitCompletionStats {
         do {
             let habits = try await fetchHabits()
             var count = 0
@@ -279,6 +394,10 @@ final class DataStore {
     func fetchCompletedNudges(for period: SummaryPeriod) async throws -> [Nudge] {
         let start = startDate(for: period)
         let end = Date.now
+        return try await fetchCompletedNudges(from: start, to: end)
+    }
+
+    func fetchCompletedNudges(from start: Date, to end: Date) async throws -> [Nudge] {
         let descriptor = FetchDescriptor<Nudge>(
             predicate: #Predicate<Nudge> { nudge in
                 nudge.isCompleted == true
@@ -296,12 +415,40 @@ final class DataStore {
         }
     }
 
+    func fetchNudge(id: UUID) async throws -> Nudge? {
+        let descriptor = FetchDescriptor<Nudge>(
+            predicate: #Predicate<Nudge> { nudge in
+                nudge.id == id
+            }
+        )
+
+        do {
+            return try context.fetch(descriptor).first
+        } catch {
+            throw DataStoreError.fetchFailed(error)
+        }
+    }
+
     func saveNudge(_ nudge: Nudge) async throws {
         context.insert(nudge)
         do {
             try context.save()
         } catch {
             throw DataStoreError.saveFailed(error)
+        }
+    }
+
+    func fetchHabit(id: UUID) async throws -> Habit? {
+        let descriptor = FetchDescriptor<Habit>(
+            predicate: #Predicate<Habit> { habit in
+                habit.id == id
+            }
+        )
+
+        do {
+            return try context.fetch(descriptor).first
+        } catch {
+            throw DataStoreError.fetchFailed(error)
         }
     }
 
@@ -313,6 +460,7 @@ final class DataStore {
 
     func saveContext() throws {
         try context.save()
+        NotificationCenter.default.post(name: .carbonDataDidChange, object: nil)
     }
 
     func fetchTodaysEntriesSync() throws -> [CarbonEntry] {
@@ -419,6 +567,26 @@ final class DataStore {
         for url in sidecarURLs where fileManager.fileExists(atPath: url.path) {
             try fileManager.removeItem(at: url)
         }
+    }
+
+    private func existingEntry(matching entry: CarbonEntry) throws -> CarbonEntry? {
+        let start = entry.date.addingTimeInterval(-120)
+        let end = entry.date.addingTimeInterval(120)
+        let candidates = try fetchEntriesSync(from: start, to: end, inclusiveEnd: true)
+
+        return candidates.first { candidate in
+            candidate.category == entry.category &&
+            candidate.source == entry.source &&
+            abs(candidate.kgCO2 - entry.kgCO2) < 0.0001 &&
+            candidate.notes == entry.notes &&
+            candidate.transportMode == entry.transportMode &&
+            normalizedDistance(candidate.distanceKm) == normalizedDistance(entry.distanceKm)
+        }
+    }
+
+    private func normalizedDistance(_ distance: Double?) -> Int {
+        guard let distance else { return -1 }
+        return Int((distance * 100).rounded())
     }
 }
 

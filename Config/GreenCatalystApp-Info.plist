@@ -25,9 +25,13 @@
 	<key>NSHealthUpdateUsageDescription</key>
 	<string>GreenCatalyst saves activity data you choose to share so your carbon tracking can stay in sync with Health.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>GreenCatalyst can use your location to detect trips and suggest lower-carbon travel choices.</string>
+	<string>GreenCatalyst uses your location to learn routine places and estimate commute trips in the background.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>GreenCatalyst uses your location while the app is active to estimate trip distance and commute impact.</string>
+	<string>GreenCatalyst uses your location while the app is active to estimate trip distance and set up passive commute detection.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

@@ -616,6 +616,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
+				DEVELOPMENT_TEAM = 2S3J25L8S9;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -626,7 +627,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.greencatalyst.tests;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/GreenCatalystApp.app/GreenCatalystApp";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/GreenCatalyst.app/GreenCatalyst";
 			};
 			name = Release;
 		};
@@ -725,6 +726,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
+				DEVELOPMENT_TEAM = 2S3J25L8S9;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -735,7 +737,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.greencatalyst.tests;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/GreenCatalystApp.app/GreenCatalystApp";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/GreenCatalyst.app/GreenCatalyst";
 			};
 			name = Debug;
 		};

@@ -1,5 +1,4 @@
 import SwiftUI
-import AuthenticationServices
 
 // MARK: - UserInfoOnboardingView
 
@@ -7,15 +6,20 @@ struct UserInfoOnboardingView: View {
 
     @Binding var isPresented: Bool
     @State private var step: Int = 0
+    @FocusState private var focusedField: Field?
 
     // Form state
     @State private var userName: String = ""
-    @State private var userEmail: String? = nil
-    @State private var appleUserID: String? = nil
     @State private var dietaryPreference: DietaryPreference = .omnivore
-    @State private var targetKgPerDay: Double = 8.0
+    @State private var regionPreference: CarbonRegionPreference = .automatic
+    @State private var targetKgPerDay: Double = CarbonRegionPreference.automatic
+        .resolved()
+        .recommendedDailyTargetKg
     @State private var isSaving: Bool = false
-    @State private var signInErrorMessage: String? = nil
+
+    private enum Field {
+        case userName
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -29,6 +33,7 @@ struct UserInfoOnboardingView: View {
             }
             .padding(.horizontal, 24)
             .padding(.top, 16)
+            .accessibilityLabel("Onboarding step \(step + 1) of 3")
 
             TabView(selection: $step) {
                 appleSignInStep.tag(0)
@@ -39,16 +44,12 @@ struct UserInfoOnboardingView: View {
             .animation(.easeInOut, value: step)
         }
         .background(Color(.systemGroupedBackground))
-        .alert("Sign In Unavailable", isPresented: signInErrorIsPresented) {
-            Button("OK") {
-                signInErrorMessage = nil
-            }
-        } message: {
-            Text(signInErrorMessage ?? "")
+        .onChange(of: regionPreference) { _, newValue in
+            targetKgPerDay = newValue.resolved().recommendedDailyTargetKg
         }
     }
 
-    // MARK: - Step 0: Sign In with Apple
+    // MARK: - Step 0: Local Setup
 
     private var appleSignInStep: some View {
         VStack(spacing: 24) {
@@ -59,29 +60,35 @@ struct UserInfoOnboardingView: View {
                 .foregroundStyle(.green)
 
             VStack(spacing: 8) {
-                Text("Let's personalise")
+                Text("Set up your profile")
                     .font(.title.bold())
-                Text("Sign in to save your profile across devices and reinstalls.")
+                Text("This build stores your profile on-device and focuses on honest, manual tracking.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
             }
 
-            SignInWithAppleButton(.signIn) { request in
-                request.requestedScopes = [.fullName, .email]
-            } onCompletion: { result in
-                handleAppleSignIn(result)
+            VStack(alignment: .leading, spacing: 12) {
+                onboardingPoint(icon: "chart.bar.fill", text: "Guided calculators help you estimate transport, food, energy, and shopping impact.")
+                onboardingPoint(icon: "heart.fill", text: "HealthKit imports are estimates derived from workout data, not verified commute detection.")
+                onboardingPoint(icon: "waveform.circle.fill", text: "Shortcuts support quick voice logging, but they are managed through the Shortcuts app.")
             }
-            .signInWithAppleButtonStyle(.black)
-            .frame(height: 50)
-            .padding(.horizontal, 40)
+            .padding(20)
+            .background(Color(.secondarySystemGroupedBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 18))
+            .padding(.horizontal, 24)
 
-            Button("Continue without signing in") {
+            Button {
                 withAnimation { step = 1 }
+            } label: {
+                Text("Continue")
+                    .frame(maxWidth: .infinity)
             }
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
+            .buttonStyle(.borderedProminent)
+            .tint(.green)
+            .padding(.horizontal, 24)
+            .accessibilityHint("Moves to profile details")
 
             Spacer()
         }
@@ -104,6 +111,8 @@ struct UserInfoOnboardingView: View {
                 TextField("Your name", text: $userName)
                     .textFieldStyle(.roundedBorder)
                     .textContentType(.name)
+                    .submitLabel(.done)
+                    .focused($focusedField, equals: .userName)
                     .padding(.horizontal, 32)
 
                 VStack(alignment: .leading, spacing: 8) {
@@ -119,11 +128,26 @@ struct UserInfoOnboardingView: View {
                     .pickerStyle(.segmented)
                     .padding(.horizontal, 32)
                 }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Region")
+                        .font(.subheadline.weight(.medium))
+                        .padding(.horizontal, 32)
+
+                    Picker("Region", selection: $regionPreference) {
+                        ForEach(CarbonRegionPreference.allCases) { preference in
+                            Text(preference.rawValue).tag(preference)
+                        }
+                    }
+                    .pickerStyle(.navigationLink)
+                    .padding(.horizontal, 32)
+                }
             }
 
             Spacer()
 
             Button {
+                focusedField = nil
                 withAnimation { step = 2 }
             } label: {
                 Text("Next")
@@ -133,6 +157,7 @@ struct UserInfoOnboardingView: View {
             .tint(.green)
             .padding(.horizontal, 24)
             .padding(.bottom, 40)
+            .accessibilityHint("Moves to your daily goal")
         }
     }
 
@@ -157,7 +182,7 @@ struct UserInfoOnboardingView: View {
                 .tint(.green)
                 .padding(.horizontal, 40)
 
-            Text("The average person emits about 8 kg CO₂ per day.")
+            Text("Regional planning baseline: \(selectedRegion.averageDailyFootprintText) per day.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -181,27 +206,7 @@ struct UserInfoOnboardingView: View {
             .disabled(isSaving)
             .padding(.horizontal, 24)
             .padding(.bottom, 40)
-        }
-    }
-
-    // MARK: - Actions
-
-    private func handleAppleSignIn(_ result: Result<ASAuthorization, Error>) {
-        switch result {
-        case .success(let authorization):
-            if let credential = authorization.credential as? ASAuthorizationAppleIDCredential {
-                appleUserID = credential.user
-                if let givenName = credential.fullName?.givenName {
-                    userName = givenName
-                    if let familyName = credential.fullName?.familyName {
-                        userName += " " + familyName
-                    }
-                }
-                userEmail = credential.email
-            }
-            withAnimation { step = 1 }
-        case .failure:
-            signInErrorMessage = "Sign in with Apple is unavailable in this build. Continue without signing in, or enable the capability on a supported Apple Developer team."
+            .accessibilityHint("Saves your profile and requests permissions")
         }
     }
 
@@ -211,17 +216,15 @@ struct UserInfoOnboardingView: View {
             do {
                 let profile = try await DataStore.shared.fetchUserProfile()
                 profile.name = userName.isEmpty ? "Green Explorer" : userName
-                profile.email = userEmail
-                profile.appleUserIdentifier = appleUserID
                 profile.dietaryPreference = dietaryPreference
+                profile.regionPreference = regionPreference
                 profile.targetKgPerDay = targetKgPerDay
                 profile.hasCompletedOnboarding = true
                 try await DataStore.shared.saveProfile(profile)
 
-                CloudProfileStore.shared.backupProfile(profile, appleUserID: appleUserID)
-
                 await NotificationManager.shared.requestAuthorization()
                 await HealthKitManager.shared.requestAuthorization()
+                LocationManager.shared.requestPassiveCommutePermission()
 
                 isPresented = false
             } catch {
@@ -230,14 +233,19 @@ struct UserInfoOnboardingView: View {
         }
     }
 
-    private var signInErrorIsPresented: Binding<Bool> {
-        Binding(
-            get: { signInErrorMessage != nil },
-            set: { isPresented in
-                if !isPresented {
-                    signInErrorMessage = nil
-                }
-            }
-        )
+    private var selectedRegion: CarbonRegion {
+        regionPreference.resolved()
+    }
+
+    private func onboardingPoint(icon: String, text: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: icon)
+                .foregroundStyle(.green)
+                .frame(width: 18)
+            Text(text)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+        .accessibilityElement(children: .combine)
     }
 }

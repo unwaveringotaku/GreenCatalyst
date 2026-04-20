@@ -108,8 +108,8 @@ extension Nudge {
         let now = Date.now
         return [
             Nudge(
-                title: "Cycle to work today",
-                description: "It's sunny and 18°C — perfect cycling weather. Save 2.4 kg CO₂ vs driving.",
+                title: "Choose cycling for a short trip",
+                description: "If a commute or errand is bike-friendly today, choosing cycling can avoid about 2.4 kg CO₂ compared with driving.",
                 co2Saving: 2.4,
                 costSaving: 3.50,
                 category: .transport,
@@ -120,7 +120,7 @@ extension Nudge {
             ),
             Nudge(
                 title: "Switch to a plant-based lunch",
-                description: "Swapping today's meal saves 1.8 kg CO₂ — that's equivalent to driving 10 km.",
+                description: "A plant-based lunch can avoid about 1.8 kg CO₂ compared with a higher-impact meal.",
                 co2Saving: 1.8,
                 costSaving: 2.00,
                 category: .food,
@@ -129,8 +129,8 @@ extension Nudge {
                 expiresAt: Calendar.current.date(byAdding: .hour, value: 4, to: now)
             ),
             Nudge(
-                title: "Turn off standby appliances",
-                description: "Your home used 15% more energy than average last night. Unplugging saves 0.6 kg CO₂.",
+                title: "Switch off unused electronics",
+                description: "Turning off devices you are not using is a simple way to trim energy waste and avoid roughly 0.6 kg CO₂.",
                 co2Saving: 0.6,
                 costSaving: 0.45,
                 category: .energy,
@@ -139,7 +139,7 @@ extension Nudge {
             ),
             Nudge(
                 title: "Shop second-hand this weekend",
-                description: "Buying pre-loved items instead of new saves up to 3 kg CO₂ per purchase.",
+                description: "Checking second-hand options before buying new can avoid several kilograms of CO₂ for some purchases.",
                 co2Saving: 3.0,
                 costSaving: 25.00,
                 category: .shopping,

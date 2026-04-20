@@ -44,14 +44,38 @@ extension WatchAppDelegate: WCSessionDelegate {
     nonisolated func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {}
 
     nonisolated func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
-        // Extract values on the calling thread before crossing isolation boundary
         let kgCO2 = message["kgCO2Today"] as? Double
+        let targetKg = message["targetKg"] as? Double
         let streak = message["topStreak"] as? Int
         let nudge = message["topNudge"] as? String
+        let nudgeCO2 = message["topNudgeCO2"] as? Double
         Task { @MainActor in
             if let kgCO2 { WatchDataStore.shared.kgCO2Today = kgCO2 }
+            if let targetKg { WatchDataStore.shared.targetKg = targetKg }
             if let streak { WatchDataStore.shared.topStreak = streak }
-            if let nudge { WatchDataStore.shared.topNudgeTitle = nudge }
+            if let nudge { WatchDataStore.shared.topNudgeTitle = nudge.isEmpty ? nil : nudge }
+            if let nudgeCO2 { WatchDataStore.shared.topNudgeCO2 = nudgeCO2 }
+            if kgCO2 != nil || targetKg != nil || streak != nil || nudge != nil || nudgeCO2 != nil {
+                WatchDataStore.shared.lastSyncDate = .now
+            }
+        }
+    }
+
+    nonisolated func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
+        let kgCO2 = applicationContext["kgCO2Today"] as? Double
+        let targetKg = applicationContext["targetKg"] as? Double
+        let streak = applicationContext["topStreak"] as? Int
+        let nudge = applicationContext["topNudge"] as? String
+        let nudgeCO2 = applicationContext["topNudgeCO2"] as? Double
+        Task { @MainActor in
+            if let kgCO2 { WatchDataStore.shared.kgCO2Today = kgCO2 }
+            if let targetKg { WatchDataStore.shared.targetKg = targetKg }
+            if let streak { WatchDataStore.shared.topStreak = streak }
+            if let nudge { WatchDataStore.shared.topNudgeTitle = nudge.isEmpty ? nil : nudge }
+            if let nudgeCO2 { WatchDataStore.shared.topNudgeCO2 = nudgeCO2 }
+            if kgCO2 != nil || targetKg != nil || streak != nil || nudge != nil || nudgeCO2 != nil {
+                WatchDataStore.shared.lastSyncDate = .now
+            }
         }
     }
 }
@@ -68,7 +92,10 @@ final class WatchDataStore {
         set { UserDefaults.standard.set(newValue, forKey: "watch_kgCO2Today") }
     }
     var targetKg: Double {
-        get { max(1, UserDefaults.standard.double(forKey: "watch_targetKg")) == 0 ? 8.0 : UserDefaults.standard.double(forKey: "watch_targetKg") }
+        get {
+            let value = UserDefaults.standard.double(forKey: "watch_targetKg")
+            return value > 0 ? value : 8.0
+        }
         set { UserDefaults.standard.set(newValue, forKey: "watch_targetKg") }
     }
     var topStreak: Int {
@@ -83,24 +110,18 @@ final class WatchDataStore {
         get { UserDefaults.standard.double(forKey: "watch_topNudgeCO2") }
         set { UserDefaults.standard.set(newValue, forKey: "watch_topNudgeCO2") }
     }
+    var lastSyncDate: Date? {
+        get { UserDefaults.standard.object(forKey: "watch_lastSyncDate") as? Date }
+        set { UserDefaults.standard.set(newValue, forKey: "watch_lastSyncDate") }
+    }
 
     var progress: Double {
         guard targetKg > 0 else { return 0 }
-        return min(kgCO2Today / targetKg, 1.0)
+        return min(max(0, kgCO2Today) / targetKg, 1.0)
     }
 
     var isUnderTarget: Bool { kgCO2Today <= targetKg }
-
-    // Seed with demo data if empty
-    init() {
-        if kgCO2Today == 0 {
-            kgCO2Today = 4.6
-            targetKg = 8.0
-            topStreak = 5
-            topNudgeTitle = "Cycle to work today"
-            topNudgeCO2 = 2.4
-        }
-    }
+    var hasSyncedData: Bool { lastSyncDate != nil }
 
     func sendUpdateToPhone() {
         guard WCSession.default.isReachable else { return }

@@ -10,9 +10,11 @@ struct WatchHomeView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 12) {
-
-                // MARK: CO₂ Ring
-                carbonRing
+                if store.hasSyncedData {
+                    carbonRing
+                } else {
+                    waitingForSyncCard
+                }
 
                 // MARK: Streak
                 streakRow
@@ -31,10 +33,14 @@ struct WatchHomeView: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(.secondary)
+                .accessibilityHint("Requests the latest snapshot from your iPhone")
             }
             .padding(.horizontal, 4)
         }
         .navigationTitle("GreenCatalyst")
+        .task {
+            store.sendUpdateToPhone()
+        }
     }
 
     // MARK: - CO₂ Ring
@@ -73,6 +79,8 @@ struct WatchHomeView: View {
             }
         }
         .padding(.top, 4)
+        .accessibilityLabel("Today's net carbon")
+        .accessibilityValue("\(String(format: "%.1f", store.kgCO2Today)) kilograms of carbon dioxide")
     }
 
     // MARK: - Streak
@@ -90,6 +98,27 @@ struct WatchHomeView: View {
         .padding(8)
         .background(Color.gray.opacity(0.15))
         .clipShape(RoundedRectangle(cornerRadius: 10))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Top streak")
+        .accessibilityValue("\(store.topStreak) days. \(store.isUnderTarget ? "Under target" : "Over target")")
+    }
+
+    private var waitingForSyncCard: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "iphone")
+                .font(.title2)
+                .foregroundStyle(.green)
+            Text("Sync from iPhone")
+                .font(.headline)
+            Text("Open GreenCatalyst on your iPhone, then tap Sync here to load your latest numbers.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding(12)
+        .background(Color.gray.opacity(0.15))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .accessibilityElement(children: .combine)
     }
 
     // MARK: - Nudge
@@ -124,6 +153,7 @@ struct WatchHomeView: View {
             .clipShape(RoundedRectangle(cornerRadius: 10))
         }
         .buttonStyle(.plain)
+        .accessibilityHint("Shows the top suggestion")
         .sheet(isPresented: $showNudge) {
             NudgeDetailView(title: title, co2Saving: store.topNudgeCO2)
         }
@@ -170,6 +200,7 @@ struct NudgeDetailView: View {
                 .font(.caption.bold())
         }
         .padding()
+        .accessibilityElement(children: .combine)
     }
 }
 

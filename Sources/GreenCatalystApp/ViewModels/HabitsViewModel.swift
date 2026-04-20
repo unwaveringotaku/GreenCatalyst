@@ -17,6 +17,7 @@ final class HabitsViewModel {
     var habitToEdit: Habit? = nil
     var isLoading: Bool = false
     var errorMessage: String? = nil
+    var currencyCode: String = Locale.current.currency?.identifier ?? "USD"
 
     // MARK: - Derived
 
@@ -71,15 +72,9 @@ final class HabitsViewModel {
         isLoading = true
         defer { isLoading = false }
         do {
+            let profile = try await dataStore.fetchUserProfile()
             habits = try await dataStore.fetchHabits()
-            if habits.isEmpty {
-                // Seed defaults on first launch
-                let defaults = Habit.defaults
-                for habit in defaults {
-                    try await dataStore.saveHabit(habit)
-                }
-                habits = defaults
-            }
+            currencyCode = profile.currencyCode
         } catch {
             errorMessage = error.localizedDescription
         }

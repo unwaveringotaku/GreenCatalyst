@@ -152,7 +152,10 @@ final class HealthKitManager: ObservableObject {
     // MARK: - Transport Inference
 
     /// Infer carbon entries from today's HealthKit data.
-    func inferCarbonEntries(for date: Date) async throws -> [CarbonEntry] {
+    func inferCarbonEntries(
+        for date: Date,
+        region: CarbonRegion = .globalAverage
+    ) async throws -> [CarbonEntry] {
         let start = Calendar.current.startOfDay(for: date)
         let end = Calendar.current.date(byAdding: .day, value: 1, to: start) ?? date
 
@@ -165,7 +168,7 @@ final class HealthKitManager: ObservableObject {
             let distanceKm = distanceM / 1000.0
             guard distanceKm > 0.1 else { continue }
 
-            let kg = calculator.calculateTransport(mode: mode, distanceKm: distanceKm)
+            let kg = calculator.calculateTransport(mode: mode, distanceKm: distanceKm, region: region)
 
             // Only log non-zero emissions (cycling/walking = 0 but still worthwhile as saved)
             let entry = CarbonEntry(
@@ -173,10 +176,10 @@ final class HealthKitManager: ObservableObject {
                 category: .transport,
                 kgCO2: kg,
                 source: .healthKit,
-                notes: "Auto-detected \(mode.rawValue) (\(String(format: "%.1f", distanceKm)) km) from HealthKit",
+                notes: "Estimated \(mode.rawValue.lowercased()) trip from HealthKit workout (\(String(format: "%.1f", distanceKm)) km)",
                 transportMode: mode,
                 distanceKm: distanceKm,
-                isVerified: true
+                isVerified: false
             )
             entries.append(entry)
         }

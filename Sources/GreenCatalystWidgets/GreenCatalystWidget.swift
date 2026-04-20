@@ -12,15 +12,17 @@ struct GreenCatalystEntry: TimelineEntry {
     let topNudgeCO2: Double
     let topStreak: Int
     let isUnderTarget: Bool
+    let isLauncherOnly: Bool
 
     static let placeholder = GreenCatalystEntry(
         date: .now,
-        kgCO2Today: 4.6,
+        kgCO2Today: 0,
         targetKg: 8.0,
-        topNudgeTitle: "Cycle to work today",
-        topNudgeCO2: 2.4,
-        topStreak: 5,
-        isUnderTarget: true
+        topNudgeTitle: nil,
+        topNudgeCO2: 0,
+        topStreak: 0,
+        isUnderTarget: true,
+        isLauncherOnly: true
     )
 
     var progressFraction: Double {
@@ -50,45 +52,13 @@ struct GreenCatalystProvider: AppIntentTimelineProvider {
     }
 
     func snapshot(for configuration: GreenCatalystWidgetIntent, in context: Context) async -> GreenCatalystEntry {
-        await fetchEntry()
+        .placeholder
     }
 
     func timeline(for configuration: GreenCatalystWidgetIntent, in context: Context) async -> Timeline<GreenCatalystEntry> {
-        let entry = await fetchEntry()
-        // Refresh at midnight and every hour
-        let midnight = Calendar.current.startOfDay(for: Calendar.current.date(byAdding: .day, value: 1, to: .now)!)
-        let nextHour = Calendar.current.date(byAdding: .hour, value: 1, to: .now)!
-        let refreshDate = min(midnight, nextHour)
+        let entry = GreenCatalystEntry.placeholder
+        let refreshDate = Calendar.current.date(byAdding: .hour, value: 6, to: .now) ?? .now
         return Timeline(entries: [entry], policy: .after(refreshDate))
-    }
-
-    // MARK: - Fetch
-
-    @MainActor
-    private func fetchEntry() async -> GreenCatalystEntry {
-        do {
-            let store = DataStore.shared
-            let entries = try await store.fetchTodaysEntries()
-            let profile = try await store.fetchUserProfile()
-            let nudges = try await store.fetchActiveNudges()
-            let habits = try await store.fetchHabits()
-
-            let total = entries.reduce(0.0) { $0 + max(0, $1.kgCO2) }
-            let topNudge = nudges.sorted { $0.priority > $1.priority }.first
-            let topStreak = habits.map { $0.streakCount }.max() ?? 0
-
-            return GreenCatalystEntry(
-                date: .now,
-                kgCO2Today: total,
-                targetKg: profile.targetKgPerDay,
-                topNudgeTitle: topNudge?.title,
-                topNudgeCO2: topNudge?.co2Saving ?? 0,
-                topStreak: topStreak,
-                isUnderTarget: total <= profile.targetKgPerDay
-            )
-        } catch {
-            return .placeholder
-        }
     }
 }
 
@@ -105,46 +75,23 @@ struct SmallWidgetView: View {
     let entry: GreenCatalystEntry
 
     var body: some View {
-        ZStack {
-            // Background
-            ContainerRelativeShape()
-                .fill(Color(.systemBackground).gradient)
-
-            VStack(spacing: 6) {
-                // Mini ring
-                ZStack {
-                    Circle()
-                        .stroke(entry.ringColor.opacity(0.2), lineWidth: 6)
-                    Circle()
-                        .trim(from: 0, to: entry.progressFraction)
-                        .stroke(
-                            AngularGradient(colors: [entry.ringColor, entry.ringColor.opacity(0.6)],
-                                            center: .center,
-                                            startAngle: .degrees(-90),
-                                            endAngle: .degrees(270)),
-                            style: StrokeStyle(lineWidth: 6, lineCap: .round)
-                        )
-                        .rotationEffect(.degrees(-90))
-
-                    VStack(spacing: 0) {
-                        Text(String(format: "%.1f", entry.kgCO2Today))
-                            .font(.system(size: 16, weight: .bold, design: .rounded))
-                            .monospacedDigit()
-                        Text("kg")
-                            .font(.system(size: 8))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .frame(width: 72, height: 72)
-
-                // Status label
-                Label(entry.isUnderTarget ? "On Track" : "Over", systemImage: entry.isUnderTarget ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
-                    .font(.caption2.bold())
-                    .foregroundStyle(entry.isUnderTarget ? .green : .orange)
-            }
-            .padding(8)
+        VStack(spacing: 8) {
+            Image(systemName: "leaf.circle.fill")
+                .font(.system(size: 36))
+                .foregroundStyle(.green)
+            Text("Open the app")
+                .font(.caption.bold())
+            Text("Use this widget as a quick launcher back into your tracking flow.")
+                .font(.system(size: 10))
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
         }
+        .padding(8)
+        .containerBackground(Color(.systemBackground).gradient, for: .widget)
         .widgetURL(URL(string: "greencatalyst://home"))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Open GreenCatalyst")
+        .accessibilityHint("Launches the app")
     }
 }
 
@@ -154,86 +101,26 @@ struct MediumWidgetView: View {
     let entry: GreenCatalystEntry
 
     var body: some View {
-        ZStack {
-            ContainerRelativeShape()
-                .fill(Color(.systemBackground).gradient)
-
-            HStack(spacing: 16) {
-                // Left: Ring
-                ZStack {
-                    Circle()
-                        .stroke(entry.ringColor.opacity(0.2), lineWidth: 8)
-                    Circle()
-                        .trim(from: 0, to: entry.progressFraction)
-                        .stroke(
-                            AngularGradient(colors: [entry.ringColor, entry.ringColor.opacity(0.6)],
-                                            center: .center,
-                                            startAngle: .degrees(-90),
-                                            endAngle: .degrees(270)),
-                            style: StrokeStyle(lineWidth: 8, lineCap: .round)
-                        )
-                        .rotationEffect(.degrees(-90))
-
-                    VStack(spacing: 2) {
-                        Text(String(format: "%.1f", entry.kgCO2Today))
-                            .font(.system(size: 18, weight: .bold, design: .rounded))
-                            .monospacedDigit()
-                        Text("of \(String(format: "%.0f", entry.targetKg)) kg")
-                            .font(.system(size: 9))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .frame(width: 90, height: 90)
-
-                // Right: Nudge + Streak
-                VStack(alignment: .leading, spacing: 8) {
-
-                    // Streak
-                    HStack(spacing: 4) {
-                        Image(systemName: "flame.fill").foregroundStyle(.orange).font(.caption)
-                        Text("\(entry.topStreak) day streak")
-                            .font(.caption.bold())
-                    }
-
-                    Divider()
-
-                    // Top Nudge
-                    if let nudge = entry.topNudgeTitle {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Label("Today's Nudge", systemImage: "bell.badge.fill")
-                                .font(.system(size: 9, weight: .bold))
-                                .foregroundStyle(.orange)
-                            Text(nudge)
-                                .font(.caption)
-                                .lineLimit(2)
-                                .foregroundStyle(.primary)
-                            if entry.topNudgeCO2 > 0 {
-                                Label(String(format: "Saves %.1f kg CO₂", entry.topNudgeCO2), systemImage: "leaf.fill")
-                                    .font(.system(size: 9))
-                                    .foregroundStyle(.green)
-                            }
-                        }
-                    } else {
-                        Text("No nudges today 🌿")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-
-                    Spacer()
-
-                    // Status
-                    Label(
-                        entry.isUnderTarget ? "Under target" : "Over target",
-                        systemImage: entry.isUnderTarget ? "checkmark.circle.fill" : "exclamationmark.circle.fill"
-                    )
-                    .font(.caption2.bold())
-                    .foregroundStyle(entry.isUnderTarget ? .green : .orange)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
+        HStack(spacing: 16) {
+            VStack(spacing: 6) {
+                Image(systemName: "leaf.circle.fill")
+                    .font(.system(size: 32))
+                    .foregroundStyle(.green)
+                Text("Open GreenCatalyst")
+                    .font(.headline)
+                Text("Jump back into the app quickly to review your latest footprint, habits, and suggestions.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
             }
-            .padding()
+            .frame(maxWidth: .infinity)
         }
+        .padding()
+        .containerBackground(Color(.systemBackground).gradient, for: .widget)
         .widgetURL(URL(string: "greencatalyst://home"))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Open GreenCatalyst")
+        .accessibilityHint("Launches the app")
     }
 }
 
@@ -247,7 +134,7 @@ struct GreenCatalystWidget: Widget {
             GreenCatalystWidgetEntryView(entry: entry)
         }
         .configurationDisplayName("GreenCatalyst")
-        .description("Track your daily carbon footprint at a glance.")
+        .description("Open GreenCatalyst from your Home Screen.")
         .supportedFamilies([.systemSmall, .systemMedium])
         .contentMarginsDisabled()
     }
